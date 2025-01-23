@@ -17,7 +17,8 @@ vec3 cartesian_to_spherical(vec3 u) {
 }
 
 void main() {
-    vec3 p = normalize((inverse(viewMatrix) * vPosition).xyz);
+    float aspect = resolution.x/resolution.y;
+    vec3 p = normalize((inverse(viewMatrix) * (vPosition * vec4(aspect, 1.0, 1.0, 1.0))).xyz);
     vec2 q = cartesian_to_spherical(p).xy;
 
     vec4 color = texture2D(terrain, q);
