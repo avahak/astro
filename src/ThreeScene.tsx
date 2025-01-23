@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { BaseScene } from './baseScene';
+import { BaseScene } from './base-scene';
 
 const SceneComponent: React.FC = () => { 
     const containerRef = useRef<HTMLDivElement>(null);
