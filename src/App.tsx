@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { Box, Container, Typography } from '@mui/material';
-const ThreeScene = React.lazy(() => import('./ThreeScene.tsx'));
+const ThreeScene = React.lazy(() => import('./ThreeScene'));
 
 const App: React.FC = () => {
     return (
