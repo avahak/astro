@@ -3,6 +3,7 @@
  * Units are radian for angles, AU for distance, Julian century (36525 days) for time.
  */
 
+const TAU = 2*Math.PI
 const DEG = Math.PI / 180;
 const M = 1 / 149597870691;                 // IAUCircular179.pdf p32
 const KM = 1000 * M;
@@ -20,7 +21,7 @@ const RATIO_EMB_MOON_TO_EARTH_MOON = 1.0/(1.0 + 1.0/MASS_RATIO_EARTH_MOON);     
 const RATIO_EMB_EARTH_TO_EARTH_MOON = RATIO_EMB_MOON_TO_EARTH_MOON - 1.0;       // ~-0.012
 
 const cst = {
-    DEG, M, KM, S, G, GMS,
+    TAU, DEG, M, KM, S, G, GMS,
     MASS_RATIO_EARTH_MOON, MASS_RATIO_SUN_EARTH,
     RATIO_EMB_MOON_TO_EARTH_MOON, RATIO_EMB_EARTH_TO_EARTH_MOON,
 

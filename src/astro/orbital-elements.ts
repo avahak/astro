@@ -50,11 +50,11 @@ function eclipticPositionFromElements(lan: number, i: number, aop: number, a: nu
  * Returns ICRF coordinates for the target object at time t.
  * 
  * @param {number} target - 1 (Mercury), 2 (Venus), 3 (EM Barycenter), 4 (Mars), 5 (Jupiter)
- *                          6 (Saturn), 7 (Uranus), 8 (Neptune), 301 (Moon)
+ *                          6 (Saturn), 7 (Uranus), 8 (Neptune), 9 (Pluto), 301 (Moon)
  * @param {number} t - time since J2000.0 in Julian centuries
  * @returns {number[] | null} The ICRF coordinates as an array [x, y, z], or null if target is invalid
  */
-function planetPos(target: number, t: number): number[] | null {
+function planetPosition(target: number, t: number): number[] | null {
     // Use lowacc formulas for Mercury, Venus, EMB, Mars, Neptune, Pluto
     // Use ppcomp formulas for Jupiter, Saturn, Uranus, Moon
     if ([1, 2, 3, 4, 8, 9].includes(target)) {
@@ -139,11 +139,11 @@ function planetPos(target: number, t: number): number[] | null {
             const L = ma + aop + lan;
             const D = L - Ls;
             const F = L - lan;
-            const dlon = (-1.274*Math.sin(ma - 2*D) + 0.658*Math.sin(2*D) - 0.186*Math.sin(Ms) - 0.059*Math.sin(2*ma - 2*D)
-                - 0.057*Math.sin(ma - 2*D + Ms) + 0.053*Math.sin(ma + 2*D) + 0.046*Math.sin(2*D - Ms) + 0.041*Math.sin(ma - Ms)
-                - 0.035*Math.sin(D) - 0.031*Math.sin(ma + Ms) - 0.015*Math.sin(2*F - 2*D) + 0.011*Math.sin(ma - 4*D))*cst.DEG;
-            const dlat = (-0.173*Math.sin(F - 2*D) - 0.055*Math.sin(ma - F - 2*D) - 0.046*Math.sin(ma + F - 2*D)
-                + 0.033*Math.sin(ma - F + D) - 0.017*Math.sin(2*D - F))*cst.DEG;
+            const dlon = (-1.274*Math.sin(ma-2*D) + 0.658*Math.sin(2*D) - 0.186*Math.sin(Ms) - 0.059*Math.sin(2*ma-2*D)
+                - 0.057*Math.sin(ma-2*D+Ms) + 0.053*Math.sin(ma+2*D) + 0.046*Math.sin(2*D-Ms) + 0.041*Math.sin(ma-Ms)
+                - 0.035*Math.sin(D) - 0.031*Math.sin(ma+Ms) - 0.015*Math.sin(2*F-2*D) + 0.011*Math.sin(ma-4*D))*cst.DEG;
+            const dlat = (-0.173*Math.sin(F-2*D) - 0.055*Math.sin(ma-F-2*D) - 0.046*Math.sin(ma+F-2*D)
+                + 0.033*Math.sin(ma-F+D) - 0.017*Math.sin(2*D-F))*cst.DEG;
 
             lonecl += dlon;
             latecl += dlat;
@@ -156,3 +156,5 @@ function planetPos(target: number, t: number): number[] | null {
         ];
     }
 }
+
+export { planetPosition };

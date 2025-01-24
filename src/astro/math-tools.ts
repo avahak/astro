@@ -1,4 +1,17 @@
 /**
+ * Helper math functions.
+ */
+
+import * as math from 'mathjs';
+
+/**
+ * Helper function to evaluate a polynomial.
+ */
+function evaluatePolynomial(coeffs: number[], t: number): number {
+    return coeffs.reduce((sum, coeff, index) => sum + coeff*(t**index), 0);
+}
+
+/**
  * Computes the cross product of two 3D vectors.
  */
 function cross(v1: number[], v2: number[]): number[] {
@@ -32,6 +45,21 @@ function dot(v1: number[], v2: number[]): number {
 function normalize(v: number[]): number[] {
     const mag = length(v);
     return v.map((value) => value / mag);
+}
+
+/**
+ * 3x3 rotation matrix
+ */
+function rotationMatrix(k: number, theta: number) {
+    const [c, s] = [Math.cos(theta), Math.sin(theta)];
+    const [k1, k2] = [(k+1)%3, (k+2)%3];
+
+    const rot = math.identity(3) as math.Matrix;
+    rot.subset(math.index(k1, k1), c);
+    rot.subset(math.index(k1, k2), -s);
+    rot.subset(math.index(k2, k1), s);
+    rot.subset(math.index(k2, k2), c);
+    return rot;
 }
 
 /**
@@ -139,5 +167,7 @@ function trueMotionCartesianToSpherical(
     return [rade, pmRade, r, rv];
 }
 
-export { xRotate, yRotate, zRotate, cartesianFromSpherical, sphericalFromCartesian,
-    sphereTangentPlaneBasisENU, trueMotionSphericalToCartesian, trueMotionCartesianToSpherical };
+export { rotationMatrix, xRotate, yRotate, zRotate, 
+    cartesianFromSpherical, sphericalFromCartesian, sphereTangentPlaneBasisENU, 
+    trueMotionSphericalToCartesian, trueMotionCartesianToSpherical,
+    evaluatePolynomial };

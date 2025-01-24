@@ -150,7 +150,11 @@ class BaseScene {
         this.lastTime = currentTime;
 
         if (!isStopped) {
-            // ...
+            if (Math.random() < 0.01) {
+                // console.log(unixFromJc(0.0));
+                // const x = math.multiply(rotationMatrix(0, 0.5), [1, 2, 3]).valueOf();
+                // console.log("0", x);
+            }
         }
         
         this.renderer.render(this.scene, this.camera);
