@@ -33,13 +33,4 @@ function horizontalFromITRS(location: GeoLocation, t: number) {
     return math.multiply(r1, math.multiply(r2, r3));
 }
 
-function positionICRFFromGeoLocation(location: GeoLocation, t: number) {
-    const lm = horizontalFromITRS(location, t);
-    const m = TIRSFromGCRS(t);
-    const p = earthPosition(t);
-    const r = earthRadius(location.lat);
-    const v = math.multiply(math.transpose(math.multiply(lm, m)), [0, 0, r]).valueOf() as number[];
-    return [p[0]+v[0], p[1]+v[1], p[2]+v[2]];
-}
-
-export { TIRSFromGCRS, horizontalFromITRS, positionICRFFromGeoLocation };
+export { TIRSFromGCRS, horizontalFromITRS };

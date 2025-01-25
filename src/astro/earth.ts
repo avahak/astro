@@ -1,4 +1,6 @@
+import * as math from "mathjs";
 import { cst } from "./constants";
+import { horizontalFromITRS, TIRSFromGCRS } from "./frames";
 import { planetPosition } from "./orbital-elements";
 
 /**
@@ -9,6 +11,18 @@ function earthPosition(t: number) {
     const p = planetPosition(3, t)!;
     const c = -1/(cst.MASS_RATIO_EARTH_MOON + 1);
     return [p[0]+c*v[0], p[1]+c*v[1], p[2]+c*v[2]];
+}
+
+/**
+ * Position of a specific location on Earth in ICRF.
+ */
+function positionFromGeoLocation(location: GeoLocation, t: number) {
+    const lm = horizontalFromITRS(location, t);
+    const m = TIRSFromGCRS(t);
+    const p = earthPosition(t);
+    const r = earthRadius(location.lat) + location.h;
+    const v = math.multiply(math.transpose(math.multiply(lm, m)), [0, 0, r]).valueOf() as number[];
+    return [p[0]+v[0], p[1]+v[1], p[2]+v[2]];
 }
 
 /**
@@ -33,4 +47,4 @@ function earthRadius(lat: number) {
     return Math.sqrt(q(2)/q(1));
 }
 
-export { earthPosition, moonPosition, earthRadius };
+export { earthPosition, positionFromGeoLocation, moonPosition, earthRadius };
