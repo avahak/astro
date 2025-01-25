@@ -54,6 +54,7 @@ function unixFromBesselianEpoch(epoch: number) {
 
 /**
  * Converts fractional year to Unix timestamp.
+ * NOTE! Years between 0 and 100 are treated as 1900+year.
  */
 function yearToUnixTimestamp(year: number): number {
     const yearFloor = Math.floor(year);
