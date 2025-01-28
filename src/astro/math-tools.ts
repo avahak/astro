@@ -4,6 +4,10 @@
 
 import * as math from 'mathjs';
 
+function clamp(x: number, xMin: number, xMax: number) {
+    return Math.max(xMin, Math.min(x, xMax));
+}
+
 /**
  * Helper function to evaluate a polynomial.
  */
@@ -167,7 +171,7 @@ function trueMotionCartesianToSpherical(
     return [rade, pmRade, r, rv];
 }
 
-export { rotationMatrix, xRotate, yRotate, zRotate, 
+export { clamp, rotationMatrix, xRotate, yRotate, zRotate, 
     cartesianFromSpherical, sphericalFromCartesian, sphereTangentPlaneBasisENU, 
     trueMotionSphericalToCartesian, trueMotionCartesianToSpherical,
     evaluatePolynomial };

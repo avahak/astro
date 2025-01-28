@@ -1,13 +1,24 @@
 import * as THREE from 'three';
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import vsGeneric from './shaders/vsGeneric.glsl?raw';
 import fs from './shaders/fs.glsl?raw';
+import { planetPosition } from './astro/orbital-elements';
+import { earthPosition, moonPosition } from './astro/earth';
+import * as math from 'mathjs';
+import { horizontalFromGCRS } from './astro/frames';
+import { cst } from './astro/constants';
+import { rotationMatrix } from './astro/math-tools';
+
+type ViewDirection = {
+    phi: number;        // azimuthal angle on the xy-plane
+    theta: number;      // signed angle from xy-plane
+};
 
 class BaseScene {
     container: HTMLDivElement;
     scene: THREE.Scene;
-    camera: THREE.Camera;
+    camera: THREE.Camera;       // Note that this is static orthographic camera
+    viewDirection: ViewDirection = { phi: 0, theta: Math.PI/2 };
     renderer: THREE.WebGLRenderer;
     cleanUpTasks: (() => void)[];
     animationRequestID: number|null = null;
@@ -68,12 +79,22 @@ class BaseScene {
         const toggleStop = () => { 
             this.isStopped = !this.isStopped;
         };
+        const info = () => { 
+            alert(JSON.stringify({ 
+                pSun: this.shader!.uniforms.pSun.value, 
+                pMoon: this.shader!.uniforms.pMoon.value,
+                mat: this.camera.matrixWorldInverse,
+                viewDirection: this.viewDirection,
+            }));
+        };
         const myObject = {
             animateButton,
             toggleStop,
+            info,
         };
         this.gui.add(myObject, 'animateButton').name("Animate step");
         this.gui.add(myObject, 'toggleStop').name("Toggle stop/play");
+        this.gui.add(myObject, 'info').name("Info");
         this.gui.close();
     }
 
@@ -109,7 +130,11 @@ class BaseScene {
         this.shader = new THREE.ShaderMaterial({
             uniforms: {
                 terrain: { value: texture },
+                pSun: { value: null },
+                pMoon: { value: null },
                 resolution: { value: null },
+                vDir: { value: null },
+                mDir: { value: null },
             },
             vertexShader: vsGeneric,
             fragmentShader: fs,
@@ -125,11 +150,9 @@ class BaseScene {
     }
 
     setupCamera() {
-        const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
-        const controls = new OrbitControls(camera, this.container);
-        this.cleanUpTasks.push(() => controls.dispose());
+        const camera = new THREE.OrthographicCamera(-1, 1, -1, 1, 0.1, 1000);
 
-        camera.position.set(1, 0, 1);
+        camera.position.set(0, 0, 1);
         camera.lookAt(new THREE.Vector3(0, 0, 0));
 
         return camera;
@@ -146,16 +169,19 @@ class BaseScene {
     }
 
     animateStep(isStopped: boolean) {
-        const currentTime = (this.lastTime ?? 0.0) + (isStopped ? 0.0 : 0.002);
+        const currentTime = (this.lastTime ?? 0.0) + (isStopped ? 0.0 : 1.0);
         this.lastTime = currentTime;
 
-        if (!isStopped) {
-            if (Math.random() < 0.01) {
-                // console.log(unixFromJc(0.0));
-                // const x = math.multiply(rotationMatrix(0, 0.5), [1, 2, 3]).valueOf();
-                // console.log("0", x);
-            }
-        }
+        const t = 0.2 + this.lastTime*0.0000001;
+        const m = horizontalFromGCRS(cst.EARTH_LOC_DICT["Helsinki"], t);
+        const pEarth = math.multiply(m, earthPosition(t)).valueOf();
+        const pSun = math.multiply(pEarth, -1);
+        const pMoon = math.multiply(m, planetPosition(301, t)!).valueOf();
+
+        this.shader!.uniforms.pSun.value = pSun;
+        this.shader!.uniforms.pMoon.value = pMoon;
+        this.shader!.uniforms.vDir.value = [this.viewDirection.phi, this.viewDirection.theta];
+        this.shader!.uniforms.mDir.value = math.transpose(math.multiply(rotationMatrix(1, this.viewDirection.phi), rotationMatrix(0, this.viewDirection.theta-Math.PI/2))).valueOf().flat();
         
         this.renderer.render(this.scene, this.camera);
     }

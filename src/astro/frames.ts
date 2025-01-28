@@ -33,4 +33,10 @@ function horizontalFromITRS(location: GeoLocation, t: number) {
     return math.multiply(r1, math.multiply(r2, r3));
 }
 
-export { TIRSFromGCRS, horizontalFromITRS };
+function horizontalFromGCRS(location: GeoLocation, t: number) {
+    const m1 = TIRSFromGCRS(t);
+    const m2 = horizontalFromITRS(location, t);
+    return math.multiply(m2, m1);
+}
+
+export { TIRSFromGCRS, horizontalFromITRS, horizontalFromGCRS };

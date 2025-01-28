@@ -3,7 +3,7 @@
  * Units are radian for angles, AU for distance, Julian century (36525 days) for time.
  */
 
-const TAU = 2*Math.PI
+const TAU = 2*Math.PI;
 const DEG = Math.PI / 180;
 const M = 1 / 149597870691;                 // IAUCircular179.pdf p32
 const KM = 1000 * M;
@@ -49,16 +49,16 @@ const cst = {
     RADIUS_EARTH: 6371.0*KM,         // radius of Earth on average
 
     EARTH_LOC_DICT: {
-        'Helsinki': [60.167*DEG, 24.942*DEG],
-        'London': [51.5*DEG, -0.1*DEG],
-        'New York': [40.7*DEG, -74.0*DEG],
-        'Wellington': [-41.3*DEG, 174.8*DEG],
-        'Fairbanks': [64.84*DEG, -147.72*DEG],
-        'Singapore': [1.34*DEG, 103.8*DEG],
-        'Kaffeklubben Island': [83.66*DEG,-30.61*DEG],
-        'North Pole': [90.0*DEG, 0],
-        'South Pole': [-90.0*DEG, 0]
+        'Helsinki': { lat: 60.167*DEG, lon: 24.942*DEG, h: 0},
+        'London': { lat: 51.5*DEG, lon: -0.1*DEG, h: 0},
+        'New York': { lat: 40.7*DEG, lon: -74.0*DEG, h: 0},
+        'Wellington': { lat: -41.3*DEG, lon: 174.8*DEG, h: 0},
+        'Fairbanks': { lat: 64.84*DEG, lon: -147.72*DEG, h: 0},
+        'Singapore': { lat: 1.34*DEG, lon: 103.8*DEG, h: 0},
+        'Kaffeklubben Island': { lat: 83.66*DEG, lon: -30.61*DEG, h: 0},
+        'North Pole': { lat: 90*DEG, lon: 0, h: 0},
+        'South Pole': { lat: -90*DEG, lon: 0, h: 0}
     },
-}
+};
 
 export { cst };
