@@ -19,6 +19,7 @@ class BaseScene {
     scene: THREE.Scene;
     camera: THREE.Camera;       // Note that this is static orthographic camera
     viewDirection: ViewDirection = { phi: 0, theta: Math.PI/2 };
+    focalLength: number = 1.0;
     renderer: THREE.WebGLRenderer;
     cleanUpTasks: (() => void)[];
     animationRequestID: number|null = null;
@@ -80,12 +81,14 @@ class BaseScene {
             this.isStopped = !this.isStopped;
         };
         const info = () => { 
-            alert(JSON.stringify({ 
+            const info = { 
                 pSun: this.shader!.uniforms.pSun.value, 
                 pMoon: this.shader!.uniforms.pMoon.value,
-                mat: this.camera.matrixWorldInverse,
                 viewDirection: this.viewDirection,
-            }));
+                mDir: this.shader!.uniforms.mDir.value,
+            };
+            console.log(info);
+            alert(JSON.stringify(info));
         };
         const myObject = {
             animateButton,
@@ -135,6 +138,7 @@ class BaseScene {
                 resolution: { value: null },
                 vDir: { value: null },
                 mDir: { value: null },
+                focalLength: { value: this.focalLength },
             },
             vertexShader: vsGeneric,
             fragmentShader: fs,
@@ -178,10 +182,13 @@ class BaseScene {
         const pSun = math.multiply(pEarth, -1);
         const pMoon = math.multiply(m, planetPosition(301, t)!).valueOf();
 
+        const mDir = math.transpose(math.multiply(rotationMatrix(2, this.viewDirection.phi), rotationMatrix(1, this.viewDirection.theta-Math.PI/2))).valueOf().flat();
+
         this.shader!.uniforms.pSun.value = pSun;
         this.shader!.uniforms.pMoon.value = pMoon;
         this.shader!.uniforms.vDir.value = [this.viewDirection.phi, this.viewDirection.theta];
-        this.shader!.uniforms.mDir.value = math.transpose(math.multiply(rotationMatrix(1, this.viewDirection.phi), rotationMatrix(0, this.viewDirection.theta-Math.PI/2))).valueOf().flat();
+        this.shader!.uniforms.mDir.value = mDir;
+        this.shader!.uniforms.focalLength.value = this.focalLength;
         
         this.renderer.render(this.scene, this.camera);
     }

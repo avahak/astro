@@ -17,7 +17,9 @@ const SceneComponent: React.FC = () => {
                     scene.viewDirection.phi = (scene.viewDirection.phi + 0.01*dx) % cst.TAU;
                     scene.viewDirection.theta = clamp(scene.viewDirection.theta - 0.01*dy, 0, Math.PI);
                 },
-                wheel: (x, y, delta) => {},
+                wheel: (x, y, delta) => {
+                    scene.focalLength = clamp(scene.focalLength/delta, 0.1, 10.0);
+                },
                 down: (x, y, button) => {},
             },
             touch: {
