@@ -49,15 +49,16 @@ const cst = {
     RADIUS_EARTH: 6371.0*KM,         // radius of Earth on average
 
     EARTH_LOC_DICT: {
-        'Helsinki': { lat: 60.167*DEG, lon: 24.942*DEG, h: 0},
-        'London': { lat: 51.5*DEG, lon: -0.1*DEG, h: 0},
-        'New York': { lat: 40.7*DEG, lon: -74.0*DEG, h: 0},
-        'Wellington': { lat: -41.3*DEG, lon: 174.8*DEG, h: 0},
-        'Fairbanks': { lat: 64.84*DEG, lon: -147.72*DEG, h: 0},
-        'Singapore': { lat: 1.34*DEG, lon: 103.8*DEG, h: 0},
-        'Kaffeklubben Island': { lat: 83.66*DEG, lon: -30.61*DEG, h: 0},
-        'North Pole': { lat: 90*DEG, lon: 0, h: 0},
-        'South Pole': { lat: -90*DEG, lon: 0, h: 0}
+        'Helsinki': { lat: 60.167*DEG, lon: 24.942*DEG, h: 0 },
+        'London': { lat: 51.5*DEG, lon: -0.1*DEG, h: 0 },
+        'New York': { lat: 40.7*DEG, lon: -74.0*DEG, h: 0 },
+        'Wellington': { lat: -41.3*DEG, lon: 174.8*DEG, h: 0 },
+        'Fairbanks': { lat: 64.84*DEG, lon: -147.72*DEG, h: 0 },
+        'Singapore': { lat: 1.34*DEG, lon: 103.8*DEG, h: 0 },
+        'Kaffeklubben Island': { lat: 83.66*DEG, lon: -30.61*DEG, h: 0 },
+        'North Pole': { lat: 90*DEG, lon: 0, h: 0 },
+        'South Pole': { lat: -90*DEG, lon: 0, h: 0 },
+        'Utrecht': { lat: 52*DEG, lon: 5*DEG, h: 0 },
     },
 };
 

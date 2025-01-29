@@ -1,6 +1,6 @@
 import * as math from "mathjs";
 import { cst } from "./constants";
-import { horizontalFromITRS, TIRSFromGCRS } from "./frames";
+import { horizontalFromGCRS, horizontalFromITRS, TIRSFromGCRS } from "./frames";
 import { planetPosition } from "./orbital-elements";
 
 /**
@@ -17,12 +17,13 @@ function earthPosition(t: number) {
  * Position of a specific location on Earth in ICRF.
  */
 function positionFromGeoLocation(location: GeoLocation, t: number) {
-    const lm = horizontalFromITRS(location, t);
-    const m = TIRSFromGCRS(t);
+    // TODO FIX/CHECK!
+    const m = horizontalFromGCRS(location, t);
     const p = earthPosition(t);
     const r = earthRadius(location.lat) + location.h;
-    const v = math.multiply(math.transpose(math.multiply(lm, m)), [0, 0, r]).valueOf() as number[];
-    return [p[0]+v[0], p[1]+v[1], p[2]+v[2]];
+    const v = math.multiply(math.transpose(m), [0, 0, r]).valueOf() as number[];
+    return null;
+    // return [p[0]+v[0], p[1]+v[1], p[2]+v[2]];
 }
 
 /**

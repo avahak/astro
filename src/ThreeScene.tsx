@@ -28,7 +28,9 @@ const SceneComponent: React.FC = () => {
                     scene.viewDirection.phi = (scene.viewDirection.phi + 0.01*dx) % cst.TAU;
                     scene.viewDirection.theta = clamp(scene.viewDirection.theta - 0.01*dy, 0, Math.PI);
                 },
-                dragPair: (_x, _y, dx, dy, scale, angle) => {},
+                dragPair: (_x, _y, dx, dy, scale, angle) => {
+                    scene.focalLength = clamp(scene.focalLength/scale, 0.1, 10.0);
+                },
             },
             keyboard: {
                 keydown: (params) => { 

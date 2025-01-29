@@ -7,9 +7,11 @@ uniform sampler2D terrain;
 uniform vec2 resolution;
 uniform vec3 pSun;
 uniform vec3 pMoon;
+uniform vec3 pJupiter;
 uniform vec2 vDir;
 uniform mat3 mDir;
 uniform float focalLength;
+uniform float terrainLight;
 varying vec4 vPosition;
 varying vec2 vUv;
 
@@ -76,9 +78,15 @@ void main() {
         return;
     }
 
+    if (length(p-normalize(pJupiter)) < 0.1) {
+        gl_FragColor = vec4(0.2, 0.2, 1.0, 1.0);
+        return;
+    }
+
     // return;
 
     vec4 color = texture2D(terrain, q);
+    color = vec4(terrainLight*color.rgb, color.a);
     vec3 color2 = vec3(q.x, q.y, 0.6);
     gl_FragColor = vec4(mix(color.rgb, color2, 1.0-color.a), 1.0);
 }

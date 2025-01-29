@@ -171,7 +171,7 @@ function trueMotionCartesianToSpherical(
     return [rade, pmRade, r, rv];
 }
 
-export { clamp, rotationMatrix, xRotate, yRotate, zRotate, 
+export { clamp, evaluatePolynomial, cross, length, dot, normalize,
+    rotationMatrix, xRotate, yRotate, zRotate, 
     cartesianFromSpherical, sphericalFromCartesian, sphereTangentPlaneBasisENU, 
-    trueMotionSphericalToCartesian, trueMotionCartesianToSpherical,
-    evaluatePolynomial };
+    trueMotionSphericalToCartesian, trueMotionCartesianToSpherical };

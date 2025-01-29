@@ -7,12 +7,17 @@ import { earthPosition, moonPosition } from './astro/earth';
 import * as math from 'mathjs';
 import { horizontalFromGCRS } from './astro/frames';
 import { cst } from './astro/constants';
-import { rotationMatrix } from './astro/math-tools';
+import { clamp, length, rotationMatrix } from './astro/math-tools';
+import { jcFromUnix, unixNow } from './astro/time';
 
 type ViewDirection = {
     phi: number;        // azimuthal angle on the xy-plane
     theta: number;      // signed angle from xy-plane
 };
+
+function computeTerrainLight(p: number[]): number {
+    return clamp(2*p[2]/length(p), 0.1, 1);
+}
 
 class BaseScene {
     container: HTMLDivElement;
@@ -84,6 +89,7 @@ class BaseScene {
             const info = { 
                 pSun: this.shader!.uniforms.pSun.value, 
                 pMoon: this.shader!.uniforms.pMoon.value,
+                pJupiter: this.shader!.uniforms.pJupiter.value,
                 viewDirection: this.viewDirection,
                 mDir: this.shader!.uniforms.mDir.value,
             };
@@ -135,10 +141,12 @@ class BaseScene {
                 terrain: { value: texture },
                 pSun: { value: null },
                 pMoon: { value: null },
+                pJupiter: { value: null },
                 resolution: { value: null },
                 vDir: { value: null },
                 mDir: { value: null },
                 focalLength: { value: this.focalLength },
+                terrainLight: { value: null },
             },
             vertexShader: vsGeneric,
             fragmentShader: fs,
@@ -176,19 +184,33 @@ class BaseScene {
         const currentTime = (this.lastTime ?? 0.0) + (isStopped ? 0.0 : 1.0);
         this.lastTime = currentTime;
 
-        const t = 0.2 + this.lastTime*0.0000001;
-        const m = horizontalFromGCRS(cst.EARTH_LOC_DICT["Helsinki"], t);
-        const pEarth = math.multiply(m, earthPosition(t)).valueOf();
+        const t = 0.19 + this.lastTime*0.00000001;
+        // const t = 0.192 + this.lastTime/36525;
+        // const t = jcFromUnix(unixNow());
+        // const t = jcFromUnix(Date.UTC(2004, 0, 1, 0, 0, 0)/1000);
+        // const t = jcFromUnix(Date.UTC(2004, 0, 1, 4, 21, 0)/1000);
+        // console.log(t);
+
+        // const m = horizontalFromGCRS(cst.EARTH_LOC_DICT["Helsinki"], t);
+        const m = horizontalFromGCRS(cst.EARTH_LOC_DICT["Utrecht"], t);
+        const pEarth0 = earthPosition(t);
+        const pEarth = math.multiply(m, pEarth0).valueOf();
         const pSun = math.multiply(pEarth, -1);
         const pMoon = math.multiply(m, planetPosition(301, t)!).valueOf();
+        const pJupiter = math.multiply(m, math.subtract(planetPosition(5, t)!, pEarth0)).valueOf();
+        // console.log("jupiter", planetPosition(5, t)!);
+        // console.log("pEarth0", pEarth0);
+        // console.log("pJupiter", pJupiter);
 
         const mDir = math.transpose(math.multiply(rotationMatrix(2, this.viewDirection.phi), rotationMatrix(1, this.viewDirection.theta-Math.PI/2))).valueOf().flat();
 
         this.shader!.uniforms.pSun.value = pSun;
         this.shader!.uniforms.pMoon.value = pMoon;
+        this.shader!.uniforms.pJupiter.value = pJupiter;
         this.shader!.uniforms.vDir.value = [this.viewDirection.phi, this.viewDirection.theta];
         this.shader!.uniforms.mDir.value = mDir;
         this.shader!.uniforms.focalLength.value = this.focalLength;
+        this.shader!.uniforms.terrainLight.value = computeTerrainLight(pSun.valueOf() as number[]);
         
         this.renderer.render(this.scene, this.camera);
     }

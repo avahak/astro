@@ -4,7 +4,7 @@
  */
 
 import { cst } from "./constants";
-import { xRotate, zRotate } from "./math-tools";
+import { cartesianFromSpherical, xRotate, zRotate } from "./math-tools";
 
 /**
  * Returns eccentric anomaly given mean anomaly and eccentricity.
@@ -49,7 +49,7 @@ function eclipticPositionFromElements(lan: number, i: number, aop: number, a: nu
 /**
  * Returns ICRF coordinates for the target object at time t.
  * 
- * @param {number} target - 1 (Mercury), 2 (Venus), 3 (EM Barycenter), 4 (Mars), 5 (Jupiter)
+ * @param {number} target - 1 (Mercury), 2 (Venus), 3 (EM Barycenter), 4 (Mars), 5 (Jupiter),
  *                          6 (Saturn), 7 (Uranus), 8 (Neptune), 9 (Pluto), 301 (Moon)
  * @param {number} t - time since J2000.0 in Julian centuries
  * @returns {number[] | null} The ICRF coordinates as an array [x, y, z], or null if target is invalid
@@ -124,10 +124,10 @@ function planetPosition(target: number, t: number): number[] | null {
         }
 
         const oe = oe0.map((val, index) => val + d*doe[index]);
-        const [lan, i, aop, a, e, ma] = oe.map(val => val*cst.DEG);
+        const [lan, i, aop, a, e, ma] = [oe[0]*cst.DEG, oe[1]*cst.DEG, oe[2]*cst.DEG, oe[3], oe[4], oe[5]*cst.DEG];
 
         const [xh, yh, zh] = eclipticPositionFromElements(lan, i, aop, a, e, ma);
-        const r = Math.sqrt(xh*xh + yh*yh + zh*zh);
+        let r = Math.sqrt(xh*xh + yh*yh + zh*zh);
         let lonecl = Math.atan2(yh, xh);
         let latecl = Math.atan2(zh, Math.sqrt(xh*xh + yh*yh));
 
@@ -144,16 +144,38 @@ function planetPosition(target: number, t: number): number[] | null {
                 - 0.035*Math.sin(D) - 0.031*Math.sin(ma+Ms) - 0.015*Math.sin(2*F-2*D) + 0.011*Math.sin(ma-4*D))*cst.DEG;
             const dlat = (-0.173*Math.sin(F-2*D) - 0.055*Math.sin(ma-F-2*D) - 0.046*Math.sin(ma+F-2*D)
                 + 0.033*Math.sin(ma-F+D) - 0.017*Math.sin(2*D-F))*cst.DEG;
+            const dr = (-0.58*Math.cos(ma-2*D) - 0.46*Math.cos(2*D))*cst.RADIUS_EARTH;
 
             lonecl += dlon;
             latecl += dlat;
+            r += dr;
         }
 
-        return [
-            r*Math.cos(latecl)*Math.cos(lonecl), 
-            r*Math.cos(latecl)*Math.sin(lonecl), 
-            r*Math.sin(latecl)
-        ];
+        if ([5, 6, 7].includes(target)) {
+            // perturbations for Jupiter, Saturn, and Uranus
+            const Mj = (19.8950 + d*0.0830853001)*cst.DEG;
+            const Ms = (316.9670 + d*0.0334442282)*cst.DEG;
+            if (target === 5) {
+                // Jupiter
+                lonecl += (-0.332*Math.sin(2*Mj-5*Ms-67.6*cst.DEG) - 0.056*Math.sin(2*Mj-2*Ms+21*cst.DEG) 
+                    + 0.042*Math.sin(3*Mj-5*Ms+21*cst.DEG) - 0.036*Math.sin(Mj-2*Ms) + 0.022*Math.cos(Mj-Ms)
+                    + 0.023*Math.sin(2*Mj-3*Ms+52*cst.DEG) - 0.016*Math.sin(Mj-5*Ms-69*cst.DEG))*cst.DEG;
+            } else if (target === 6) {
+                // Saturn
+                lonecl += (+0.812*Math.sin(2*Mj-5*Ms-67.6*cst.DEG) - 0.229*Math.cos(2*Mj-4*Ms-2*cst.DEG)
+                    + 0.119*Math.sin(Mj-2*Ms-3*cst.DEG) + 0.046*Math.sin(2*Mj-6*Ms-69*cst.DEG)
+                    + 0.014*Math.sin(Mj-3*Ms+32*cst.DEG))*cst.DEG;
+                latecl += (-0.020*Math.cos(2*Mj-4*Ms-2*cst.DEG) + 0.018*Math.sin(2*Mj-6*Ms-49*cst.DEG))*cst.DEG;
+            } else if (target === 7) {
+                // Uranus
+                const Mu = (142.5905 + d*0.011725806)*cst.DEG;
+                lonecl += (+0.040*Math.sin(Ms-2*Mu+6*cst.DEG) + 0.035*Math.sin(Ms-3*Mu+33*cst.DEG) 
+                    - 0.015*Math.sin(Mj-Mu+20*cst.DEG))*cst.DEG;
+            }
+        }
+
+        const p = cartesianFromSpherical(r, latecl, lonecl+lonCorrPrecession);
+        return xRotate(p, ep);
     }
 }
 
