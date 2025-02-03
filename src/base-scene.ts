@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import vsGeneric from './shaders/vsGeneric.glsl?raw';
 import fs from './shaders/fs.glsl?raw';
+import fsPost from './shaders/fsPost.glsl?raw';
 import { planetPosition } from './astro/orbital-elements';
 import { earthPosition, moonPosition } from './astro/earth';
 import * as math from 'mathjs';
@@ -15,13 +16,6 @@ type ViewDirection = {
     theta: number;      // signed angle from xy-plane
 };
 
-// Helper function, see "Display of The Earth Taking into Account Atmospheric Scattering"
-function mieScatteringConstant(u: number): number {
-    const x = 5/9*u + 125/729*u*u*u + Math.sqrt(64/27 - 325/243*u*u + 1250/2187*u*u*u*u);
-    const g = 5/9*u - (4/3 - 25/81*u*u)*Math.pow(x, -1/3) + Math.pow(x, 1/3);
-    return g;
-}
-
 function computeTerrainLight(p: number[]): number {
     return clamp(2*p[2]/length(p), 0.1, 1);
 }
@@ -29,6 +23,7 @@ function computeTerrainLight(p: number[]): number {
 class BaseScene {
     container: HTMLDivElement;
     scene: THREE.Scene;
+    scenePost: THREE.Scene;
     camera: THREE.Camera;       // Note that this is static orthographic camera
     viewDirection: ViewDirection = { phi: 0, theta: Math.PI/2 };
     focalLength: number = 1.0;
@@ -38,8 +33,13 @@ class BaseScene {
     lastTime: number|null = null;
     gui: any;
     isStopped: boolean = false;
+    averageRenderTime: number = 0.0;
+
+    hdrFbo!: THREE.WebGLRenderTarget;
+    disposeFbos: () => void = () => {};
 
     shader!: THREE.ShaderMaterial;
+    shaderPost!: THREE.ShaderMaterial;
 
     constructor(container: HTMLDivElement) {
         this.container = container;
@@ -48,17 +48,22 @@ class BaseScene {
         this.renderer.setClearColor(0x000000, 0);
         container.appendChild(this.renderer.domElement);
 
+        this.renderer.getContext().getExtension('EXT_float_blend');
+
         this.scene = this.setupScene();
         this.camera = this.setupCamera();
         
         this.setupResizeRenderer();
         this.resizeRenderer();
 
+        this.scenePost = this.setupScenePost();
+
         this.createGUI();
 
         this.cleanUpTasks.push(() => { 
             if (this.animationRequestID)
                 cancelAnimationFrame(this.animationRequestID);
+            this.disposeFbos();
         });
         this.animate = this.animate.bind(this);
         this.animate();
@@ -73,6 +78,7 @@ class BaseScene {
             this.camera.aspect = clientWidth / clientHeight;
             this.camera.updateProjectionMatrix();
         }
+        this.setupFbos();
         this.shader!.uniforms.resolution.value = this.getResolution();
     }
 
@@ -84,6 +90,23 @@ class BaseScene {
         resizeObserver.observe(this.container);
         this.cleanUpTasks.push(() => resizeObserver.unobserve(this.container));
         this.resizeRenderer();
+    }
+
+    setupFbos() {
+        this.disposeFbos();
+        this.hdrFbo = this.createRenderTarget();
+        this.disposeFbos = () => this.hdrFbo.dispose();
+    }
+
+    createRenderTarget() {
+        const { clientWidth, clientHeight } = this.container;
+        const renderTarget = new THREE.WebGLRenderTarget(clientWidth, clientHeight, {
+            minFilter: THREE.NearestFilter,
+            magFilter: THREE.NearestFilter,
+            format: THREE.RGBAFormat,
+            type: THREE.FloatType
+        });
+        return renderTarget;
     }
 
     createGUI() {
@@ -139,13 +162,18 @@ class BaseScene {
         scene.add(light);
 
         const textureLoader = new THREE.TextureLoader();
-        const texture = textureLoader.load('/astro/klippad_sunrise_2_4k.webp');
-        // const texture = textureLoader.load('/astro/klippad_sunrise_2_4k.png');
-        texture.generateMipmaps = false;
+        const textureTerrain = textureLoader.load('/astro/klippad_sunrise_2_4k.webp');
+        // const textureTerrain = textureLoader.load('/astro/klippad_sunrise_2_4k.png');
+        textureTerrain.generateMipmaps = false;
+        const textureDepth = textureLoader.load('/astro/depth.png');
+        textureDepth.wrapS = THREE.ClampToEdgeWrapping;
+        textureDepth.wrapT = THREE.ClampToEdgeWrapping;
+        textureDepth.generateMipmaps = false;
 
         this.shader = new THREE.ShaderMaterial({
             uniforms: {
-                terrain: { value: texture },
+                terrain: { value: textureTerrain },
+                depthTexture: { value: textureDepth },
                 pSun: { value: null },
                 pMoon: { value: null },
                 pJupiter: { value: null },
@@ -167,6 +195,27 @@ class BaseScene {
         scene.add(mesh);
 
         // scene.rotateOnAxis(new THREE.Vector3(1, 0, 0), -Math.PI/2.0);   // just for camera angles
+
+        return scene;
+    }
+
+    setupScenePost() {
+        const scene = new THREE.Scene();
+
+        // const axesHelper = new THREE.AxesHelper(5);
+        // scene.add(axesHelper);
+
+        this.shaderPost = new THREE.ShaderMaterial({
+            uniforms: {
+                hdrTexture: { value: this.hdrFbo.texture },
+            },
+            vertexShader: vsGeneric,
+            fragmentShader: fsPost,
+            transparent: true,
+        });
+        const geometry = new THREE.PlaneGeometry(2, 2);
+        const mesh = new THREE.Mesh(geometry, this.shaderPost);
+        scene.add(mesh);
 
         return scene;
     }
@@ -194,8 +243,8 @@ class BaseScene {
         const currentTime = (this.lastTime ?? 0.0) + (isStopped ? 0.0 : 1.0);
         this.lastTime = currentTime;
 
-        // const t = 0.19 + this.lastTime*0.00000005;
-        const t = 0.1920 + this.lastTime/36525;
+        const t = 0.19 + this.lastTime*0.00000005;
+        // const t = 0.1920 + this.lastTime/36525;
         // const t = jcFromUnix(unixNow());
         // const t = jcFromUnix(Date.UTC(2004, 0, 1, 0, 0, 0)/1000);
         // const t = jcFromUnix(Date.UTC(2004, 0, 1, 4, 21, 0)/1000);
@@ -222,12 +271,17 @@ class BaseScene {
         this.shader!.uniforms.mDir.value = mDir;
         this.shader!.uniforms.focalLength.value = this.focalLength;
         this.shader!.uniforms.terrainLight.value = computeTerrainLight(pSun.valueOf() as number[]);
+        this.shaderPost!.uniforms.hdrTexture.value = this.hdrFbo.texture;
 
-        // this.shader!.uniforms.radii.value = [1, 1.002, 1.0001];
-        this.shader!.uniforms.radii.value = [1, 1.025, 1.001];
-        // this.shader!.uniforms.radii.value = [1, 1.5, 1.1];
+        this.shader!.uniforms.radii.value = [1, 1.002, 1.0001];
+        // this.shader!.uniforms.radii.value = [1, 1.025, 1.001];
+        // this.shader!.uniforms.radii.value = [1, 1.01, 1.001];
+        // this.shader!.uniforms.radii.value = [1, 1.5, 1.2];
         
+        this.renderer.setRenderTarget(this.hdrFbo);
         this.renderer.render(this.scene, this.camera);
+        this.renderer.setRenderTarget(null);
+        this.renderer.render(this.scenePost, this.camera);
     }
 }
 

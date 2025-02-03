@@ -4,6 +4,7 @@
 precision highp float;
 
 uniform sampler2D terrain;
+uniform sampler2D depthTexture;
 uniform vec2 resolution;
 uniform vec3 pSun;
 uniform vec3 pMoon;
@@ -79,20 +80,48 @@ vec2 raySphereIntersection(vec3 s0, float r, vec3 p0, vec3 v) {
 }
 
 vec2 density(vec3 p) {
-    vec2 densityFalloff = vec2(4.0, 16.0);
-    float h01 = (length(p) - radii.x)/(radii.y-radii.x);
+    vec2 densityFalloff = vec2(2.0, 8.0);
+    float h01 = clamp((length(p) - radii.x)/(radii.y-radii.x), 0.0, 1.0);
     return exp(-densityFalloff*h01)*(1.0-h01);
 }
 
 vec2 opticalDepth(vec3 rayOrigin, vec3 rayDir, float rayLength) {
-    int numSamples = 6;
+    int numSamples = 10;
     float stepSize = rayLength/(float(numSamples)-1.0);
     vec2 depth = vec2(0.0);
     for (int k = 0; k < numSamples; k++) {
         vec3 samplePoint = rayOrigin + float(k)*rayDir*stepSize;
-        depth += density(samplePoint) * stepSize;
+        depth += density(samplePoint)*stepSize;
     }
     return depth;
+}
+
+vec2 opticalDepth2(vec3 rayOrigin, vec3 rayDir) {
+    int numSamples = 200;
+    float stepSize = 2.0*radii.y/(float(numSamples)-1.0);
+    vec2 depth = vec2(0.0);
+    for (int k = 0; k < numSamples; k++) {
+        vec3 samplePoint = rayOrigin + float(k)*rayDir*stepSize;
+        depth += density(samplePoint)*stepSize;
+    }
+    return depth;
+}
+
+vec2 opticalDepthTextureLookup(float h01, float dp01) {
+    vec3 rayOrigin = vec3(0.0, radii.z+h01*(radii.y-radii.x), 0.0);
+    float dp = 1.0 - 2.0*dp01;
+    vec3 rayDir = vec3(sqrt(1.0-dp*dp), dp, 0.0);
+    return opticalDepth2(rayOrigin, rayDir);
+}
+
+vec2 opticalDepthFromTexture(vec3 rayOrigin, vec3 rayDir) {
+    float h01 = (length(rayOrigin)-radii.x)/(radii.y-radii.x);
+    float dp01 = 0.5 - dot(rayOrigin, rayDir)/length(rayOrigin)*0.5;
+    // return opticalDepthTextureLookup(h01, dp01);
+
+    vec2 tex = texture(depthTexture, vec2(h01, dp01)).rg;
+    // return 2.0*tex;
+    return exp(vec2(2.0-1.0/tex.x, 2.0-1.0/tex.y));
 }
 
 vec3 atmosphere(vec3 v) {
@@ -108,35 +137,37 @@ vec3 atmosphere(vec3 v) {
     float c_theta = dot(dirToSun, v);
     float c_theta2 = c_theta*c_theta;
     float K_Rayleigh = 3.0/4.0*(1.0 + c_theta2);
-    float g = 0.7;      // 0.64 to 0.81
-    float K_Mie = 3.0/2.0*(1.0-g*g)/(2.0+g*g)*(1.0+c_theta2)/pow(1.0+g*g-2.0*g*c_theta, 3.0/2.0);
+    float g = 0.8;  // asymmetry parameter, in (-1,1), positive for forward scattering
+    float K_Mie = 2.0*(1.0-g*g)/(4.0*PI)/pow(1.0+g*g-2.0*g*c_theta, 3.0/2.0);
 
-    float scatterStr = 50.0;
+    float scatterStr = 500.0;
 
     // Segment inside atmosphere is observerPos+t*v where t in [t.x, t.x+t.y]
-    int stepNum = 10;
+    int stepNum = 20;
     float stepSize = t.y/float(stepNum);
-    vec3 pos = observerPos + t.x*v;
+    vec3 pos0 = observerPos + t.x*v;// + 0.5*stepSize*v; 
+    vec3 pos = pos0; 
     vec3 lightRayleigh = vec3(0.0);
     float lightMie = 0.0;
     // vec3 light2 = vec3(0.0);
+    vec2 viewRayOpticalDepth = vec2(0.0);
     for (int k = 0; k < stepNum; k++) {
         float sunRayLength = raySphereIntersection(vec3(0.0), radii.y, pos, dirToSun).y;
         vec2 sunRayOpticalDepth = opticalDepth(pos, dirToSun, sunRayLength);
-        vec2 viewRayOpticalDepth = opticalDepth(pos, -v, float(k)*stepSize);
+        // vec2 viewRayOpticalDepth = opticalDepth(pos, -v, float(k)*stepSize);
+        // vec2 viewRayOpticalDepth = opticalDepth(pos0, v, float(k)*stepSize);
+
+        // vec2 sunRayOpticalDepth = opticalDepthFromTexture(pos, dirToSun);
+        // vec2 viewRayOpticalDepth = opticalDepthFromTexture(pos0, v) - opticalDepthFromTexture(pos, v);
 
         vec3 lightInRayleigh = exp(-(sunRayOpticalDepth.x + viewRayOpticalDepth.x)*scatterCoeff*scatterStr);
         float lightInMie = exp(-(sunRayOpticalDepth.x + viewRayOpticalDepth.x)*scatterStr);
 
-        // float sunBlock = raySphereIntersection(vec3(0.0), radii.x, pos, dirToSun).x;
-        // float blockFactor = 1.0;
-        // if (sunBlock >= -EP)
-        //     blockFactor = 0.0;
-        // light2 += s * density(pos) * lightIn * blockFactor * scatterCoeff * scatterStr * stepSize;
-
-        lightRayleigh += K_Rayleigh * density(pos).x * lightInRayleigh * scatterCoeff * scatterStr * stepSize;
-        lightMie += K_Mie * density(pos).y * lightInMie * scatterStr * stepSize;
-        pos += v*stepSize;
+        vec2 d = density(pos) * stepSize;
+        viewRayOpticalDepth += d;
+        lightRayleigh += K_Rayleigh * d.x * lightInRayleigh * scatterCoeff * scatterStr;
+        lightMie += K_Mie * d.y * lightInMie * scatterStr;
+        pos += v * stepSize;
     }
 
     return lightRayleigh + vec3(lightMie);
@@ -174,9 +205,14 @@ void main() {
         return;
     }
 
-    vec4 color = texture2D(terrain, q);
+    vec4 color = texture(terrain, q);
     // color.a = 0.0;
     color = vec4(terrainLight*color.rgb, color.a);
     vec3 color2 = atmosphere(normalize(p));
+    // gl_FragColor = vec4(0.5+vPosition.x*0.5, 0.5-vPosition.y*0.5, 0.0, 1.0);
+    // gl_FragColor = vec4(opticalDepthTextureLookup(0.5+vPosition.x*0.5, 0.5-vPosition.y*0.5), 0.0, 1.0);
+    // vec2 tex = texture(depthTexture, vec2(0.5+vPosition.x*0.5, 0.5-vPosition.y*0.5)).rg;
+    // vec2 depth = exp(vec2(2.0-1.0/tex.x, 2.0-1.0/tex.y));
+    // gl_FragColor = vec4(depth, 0.0, 1.0);
     gl_FragColor = vec4(mix(color.rgb, color2, 1.0-color.a), 1.0);
 }
