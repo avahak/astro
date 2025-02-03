@@ -15,6 +15,13 @@ type ViewDirection = {
     theta: number;      // signed angle from xy-plane
 };
 
+// Helper function, see "Display of The Earth Taking into Account Atmospheric Scattering"
+function mieScatteringConstant(u: number): number {
+    const x = 5/9*u + 125/729*u*u*u + Math.sqrt(64/27 - 325/243*u*u + 1250/2187*u*u*u*u);
+    const g = 5/9*u - (4/3 - 25/81*u*u)*Math.pow(x, -1/3) + Math.pow(x, 1/3);
+    return g;
+}
+
 function computeTerrainLight(p: number[]): number {
     return clamp(2*p[2]/length(p), 0.1, 1);
 }
@@ -147,6 +154,9 @@ class BaseScene {
                 mDir: { value: null },
                 focalLength: { value: this.focalLength },
                 terrainLight: { value: null },
+
+                radii: { value: null },
+                scatterCoeff: { value: [Math.pow(500/700, 4), Math.pow(500/530, 4), Math.pow(500/440, 4)] },
             },
             vertexShader: vsGeneric,
             fragmentShader: fs,
@@ -184,15 +194,16 @@ class BaseScene {
         const currentTime = (this.lastTime ?? 0.0) + (isStopped ? 0.0 : 1.0);
         this.lastTime = currentTime;
 
-        const t = 0.19 + this.lastTime*0.00000001;
-        // const t = 0.192 + this.lastTime/36525;
+        // const t = 0.19 + this.lastTime*0.00000005;
+        const t = 0.1920 + this.lastTime/36525;
         // const t = jcFromUnix(unixNow());
         // const t = jcFromUnix(Date.UTC(2004, 0, 1, 0, 0, 0)/1000);
         // const t = jcFromUnix(Date.UTC(2004, 0, 1, 4, 21, 0)/1000);
         // console.log(t);
 
         // const m = horizontalFromGCRS(cst.EARTH_LOC_DICT["Helsinki"], t);
-        const m = horizontalFromGCRS(cst.EARTH_LOC_DICT["Utrecht"], t);
+        const m = horizontalFromGCRS(cst.EARTH_LOC_DICT["Singapore"], t);
+        // const m = horizontalFromGCRS(cst.EARTH_LOC_DICT["Utrecht"], t);
         const pEarth0 = earthPosition(t);
         const pEarth = math.multiply(m, pEarth0).valueOf();
         const pSun = math.multiply(pEarth, -1);
@@ -211,6 +222,10 @@ class BaseScene {
         this.shader!.uniforms.mDir.value = mDir;
         this.shader!.uniforms.focalLength.value = this.focalLength;
         this.shader!.uniforms.terrainLight.value = computeTerrainLight(pSun.valueOf() as number[]);
+
+        // this.shader!.uniforms.radii.value = [1, 1.002, 1.0001];
+        this.shader!.uniforms.radii.value = [1, 1.025, 1.001];
+        // this.shader!.uniforms.radii.value = [1, 1.5, 1.1];
         
         this.renderer.render(this.scene, this.camera);
     }
