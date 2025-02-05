@@ -5,3 +5,4 @@ Basic planetary positions from [page by Paul Schlyter](http://www.stjarnhimlen.s
 
 Other resources
 https://www.minorplanetcenter.net/
+https://www.celestialprogramming.com/ (includes JavaScript code)

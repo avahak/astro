@@ -10,7 +10,7 @@ uniform vec3 pSun;
 uniform vec3 pMoon;
 uniform vec3 pJupiter;
 uniform vec2 vDir;
-uniform mat3 mDir;
+uniform mat3 vMat;
 uniform float focalLength;
 uniform float terrainLight;
 
@@ -179,8 +179,8 @@ void main() {
     vec2 p0 = vPosition.xy * vec2(aspect, 1.0);
     float r = length(p0);
     float theta = 2.0*atan(r/(2.0*focalLength));
-    // vec3 p = -mDir * vec3(sin(theta)*p0/r, cos(theta));
-    vec3 p = mDir * vec3(cos(theta), -sin(theta)*p0.x/r, sin(theta)*p0.y/r);
+    // vec3 p = -vMat * vec3(sin(theta)*p0/r, cos(theta));
+    vec3 p = vMat * vec3(cos(theta), -sin(theta)*p0.x/r, sin(theta)*p0.y/r);
 
     vec2 q = clamp_spherical(cartesian_to_spherical(p));
 
