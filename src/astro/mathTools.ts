@@ -9,6 +9,24 @@ function clamp(x: number, xMin: number, xMax: number) {
 }
 
 /**
+ * Returns mean, standard deviation, minimum, and maximum of the given vector.
+ * NOTE: inefficient but like this for code reference.
+ */
+function stats(v: number[]): { n: number, mean: number, stdDev: number, min: number, max: number } {
+    const n = v.length;
+    if (n === 0)
+        throw new Error("Input array must not be empty");
+
+    const mean = v.reduce((sum, val) => sum + val, 0) / n;
+    const variance = v.reduce((sum, val) => sum + (val - mean)**2, 0) / n;
+    const stdDev = Math.sqrt(variance);
+    const min = v.reduce((a, b) => Math.min(a, b), v[0]);
+    const max = v.reduce((a, b) => Math.max(a, b), v[0]);
+
+    return { n, mean, stdDev, min, max };
+}
+
+/**
  * Helper function to evaluate a polynomial.
  */
 function evaluatePolynomial(coeffs: number[], t: number): number {
@@ -171,7 +189,7 @@ function trueMotionCartesianToSpherical(
     return [rade, pmRade, r, rv];
 }
 
-export { clamp, evaluatePolynomial, cross, length, dot, normalize,
+export { clamp, stats, evaluatePolynomial, cross, length, dot, normalize,
     rotationMatrix, xRotate, yRotate, zRotate, 
     cartesianFromSpherical, sphericalFromCartesian, sphereTangentPlaneBasisENU, 
     trueMotionSphericalToCartesian, trueMotionCartesianToSpherical };

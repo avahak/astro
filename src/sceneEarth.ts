@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import vsGeneric from './shaders/vsGeneric.glsl?raw';
 import fsEarth from './shaders/fsEarth.glsl?raw';
-import { planetPosition } from './astro/orbital-elements';
+import { planetPosition } from './astro/orbitalElements';
 import { earthPosition, moonPosition } from './astro/earth';
 import * as math from 'mathjs';
 import { horizontalFromGCRS } from './astro/frames';
 import { cst } from './astro/constants';
-import { clamp, length, rotationMatrix } from './astro/math-tools';
-import { MainScene } from './scene-main';
+import { clamp, length, rotationMatrix } from './astro/mathTools';
+import { MainScene } from './sceneMain';
 
 function computeTerrainLight(p: number[]): number {
     return clamp(2*p[2]/length(p), 0.1, 1);

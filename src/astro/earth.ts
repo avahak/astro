@@ -1,7 +1,7 @@
 import * as math from "mathjs";
 import { cst } from "./constants";
 import { horizontalFromGCRS, horizontalFromITRS, TIRSFromGCRS } from "./frames";
-import { planetPosition } from "./orbital-elements";
+import { planetPosition } from "./orbitalElements";
 
 /**
  * Position of Earth in ICRF.

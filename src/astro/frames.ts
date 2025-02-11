@@ -17,7 +17,7 @@
 
 import * as math from "mathjs";
 import { GAST, nutationPrecessionMatrix } from "./formulae";
-import { rotationMatrix } from "./math-tools";
+import { rotationMatrix } from "./mathTools";
 import { earthPosition, earthRadius } from "./earth";
 
 function TIRSFromGCRS(t: number) {

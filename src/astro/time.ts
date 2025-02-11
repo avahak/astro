@@ -56,7 +56,7 @@ function unixFromBesselianEpoch(epoch: number) {
  * Converts fractional year to Unix timestamp.
  * NOTE! Years between 0 and 100 are treated as 1900+year.
  */
-function yearToUnixTimestamp(year: number): number {
+function unixFromFractionalYear(year: number): number {
     const yearFloor = Math.floor(year);
     const yearBegin = Date.UTC(yearFloor, 0, 1, 0, 0, 0, 0)/1000;
     const yearEnd = Date.UTC(yearFloor + 1, 0, 1, 0, 0, 0, 0)/1000;
@@ -69,10 +69,10 @@ function yearToUnixTimestamp(year: number): number {
  * NOTE! Years between 0 and 100 are treated as 1900+year.
  */
 function randomUnixBetween(year1: number, year2: number): number {
-    const unix1 = yearToUnixTimestamp(year1);
-    const unix2 = yearToUnixTimestamp(year2);
+    const unix1 = unixFromFractionalYear(year1);
+    const unix2 = unixFromFractionalYear(year2);
     return unix1 + Math.random()*(unix2 - unix1);
 }
 
 export { unixNow, jdFromUnix, unixFromJd, jcFromUnix, unixFromJc, 
-    unixFromBesselianEpoch, randomUnixBetween };
+    unixFromBesselianEpoch, unixFromFractionalYear, randomUnixBetween };

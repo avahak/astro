@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import vsGeneric from './shaders/vsGeneric.glsl?raw';
-import fsPost from './shaders/fsPost.glsl?raw';
-import { MainScene } from './scene-main';
+import fsSpace from './shaders/fsSpace.glsl?raw';
+import { MainScene } from './sceneMain';
 
-class PostScene {
+class SpaceScene {
     mainScene: MainScene;
     scene: THREE.Scene;
     cleanUpTasks: (() => void)[];
@@ -27,7 +27,7 @@ class PostScene {
                 hdrTexture: { value: null },
             },
             vertexShader: vsGeneric,
-            fragmentShader: fsPost,
+            fragmentShader: fsSpace,
             transparent: true,
         });
         const geometry = new THREE.PlaneGeometry(2, 2);
@@ -38,10 +38,10 @@ class PostScene {
     }
 
     render(renderer: THREE.WebGLRenderer, camera: THREE.Camera) {
-        this.shader.uniforms.hdrTexture.value = this.mainScene.hdrFbo.texture;
-        renderer.setRenderTarget(null);
+        renderer.setRenderTarget(this.mainScene.hdrFbo);
         renderer.render(this.scene, camera);
+        renderer.setRenderTarget(null);
     }
 }
 
-export { PostScene };
+export { SpaceScene };

@@ -3,7 +3,7 @@
  */
 
 import { cst } from "./constants";
-import { evaluatePolynomial, rotationMatrix } from "./math-tools"
+import { evaluatePolynomial, rotationMatrix } from "./mathTools"
 import * as math from 'mathjs';
 
 /**
@@ -80,7 +80,9 @@ function precessionMatrix(t: number): math.Matrix {
     const [ze, z, th] = precession(t);
     return math.multiply(
         rotationMatrix(2, z),
-        math.multiply(rotationMatrix(1, -th), rotationMatrix(2, ze))
+        math.multiply(
+            rotationMatrix(1, -th), 
+            rotationMatrix(2, ze))
     );
 }
 

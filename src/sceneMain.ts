@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-import { planetPosition } from './astro/orbital-elements';
+import { planetPosition } from './astro/orbitalElements';
 import { earthPosition, moonPosition } from './astro/earth';
 import * as math from 'mathjs';
 import { horizontalFromGCRS } from './astro/frames';
 import { cst } from './astro/constants';
-import { clamp, length, rotationMatrix } from './astro/math-tools';
+import { clamp, length, rotationMatrix } from './astro/mathTools';
 import { jcFromUnix, unixFromJc, unixNow } from './astro/time';
-import { EarthScene } from './scene-earth';
-import { PostScene } from './scene-post';
-import { SpaceScene } from './scene-space';
+import { EarthScene } from './sceneEarth';
+import { PostScene } from './scenePost';
+import { SpaceScene } from './sceneSpace';
 import { SceneParameters } from './parameters';
 
 function computeTerrainLight(p: number[]): number {
