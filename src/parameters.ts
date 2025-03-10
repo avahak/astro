@@ -1,6 +1,6 @@
 import * as math from 'mathjs';
 import { horizontalFromGCRS } from "./astro/frames";
-import { planetPosition } from "./astro/orbitalElements";
+import { planetPosition } from "./astro/ephemeris/orbitalElements";
 import { cst } from "./astro/constants";
 import { earthPosition } from "./astro/earth";
 import { rotationMatrix } from './astro/mathTools';

@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { createTheme, ThemeProvider } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
-import { AppRouter } from './AppRouter.tsx';
+import { AppRouter } from './pages/AppRouter.tsx';
 
 const darkTheme = createTheme({
     palette: {

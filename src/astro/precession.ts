@@ -1,13 +1,13 @@
 /**
  * Long term (+-200k years) precession model
- * from article: J. Vondrák et al.: New precession expressions.
+ * from article: J. Vondrák et al.: New precession expressions, valid for long time intervals.
  * For another JavaScript implementation and test cases see 
  * Greg Miller 2022, https://www.celestialprogramming.com/snippets/precessionVondrak.html
  */
 
 import * as math from "mathjs";
 import { cst } from "./constants";
-import { cross, evaluatePolynomial, rotationMatrix, normalize } from "./mathTools";
+import { cross, evaluatePolynomial, rotationMatrix, normalize, xRotate, length } from "./mathTools";
 
 // Axial tilt at J2000.0
 const EP_J2000 = 84381.406 * cst.ARCSEC;
@@ -54,18 +54,7 @@ const XY_PERIODIC = [
     [1200, -9.814756, 9.344131, -44.919798, -22.899655]
 ];
 
-/**
- * Transformation from GCRS to the mean equator and equinox of J2000.0.
- * NOTE! Our rotation matrices have opposite sign than those of IAU Circular 179!
- */
-const FRAME_BIAS_MATRIX = math.multiply(
-    rotationMatrix(0, -0.0068192 * cst.ARCSEC), 
-    math.multiply(
-        rotationMatrix(1, 0.016617 * cst.ARCSEC), 
-        rotationMatrix(2, 0.0146 * cst.ARCSEC), 
-    )).valueOf() as number[][];
-
-// Helper function for ltpPECL and ltpPEQU.
+// Helper function for eclipticPole and equatorPole.
 function sumTerms(t: number, polynomialTerms: number[][], periodicTerms: number[][]): [number, number] {
     // Sum polynomial terms
     let a1 = evaluatePolynomial(polynomialTerms[0], t);
@@ -87,11 +76,7 @@ function sumTerms(t: number, polynomialTerms: number[][], periodicTerms: number[
 function eclipticPole(t: number): number[] {
     const [p, q] = sumTerms(t, PQ_POLYNOMIAL, PQ_PERIODIC);
     const z = Math.sqrt(Math.max(1 - p*p - q*q, 0));
-
-    const a = -q*Math.cos(EP_J2000) - z*Math.sin(EP_J2000);
-    const b = -q*Math.sin(EP_J2000) + z*Math.cos(EP_J2000);
-
-    return [p, a, b];
+    return xRotate([p, -q, z], EP_J2000);
 }
 
 /**
@@ -99,14 +84,14 @@ function eclipticPole(t: number): number[] {
  */
 function equatorPole(t: number): number[] {
     const [x, y] = sumTerms(t, XY_POLYNOMIAL, XY_PERIODIC);
-    const z = Math.sqrt(1 - Math.min(x*x + y*y, 1));
+    const z = Math.sqrt(Math.max(1 - x*x - y*y, 0));
     return [x, y, z];
 }
 
 /**
  * Long-term precession matrix
  */
-function longTermPrecessionMatrix(t: number): number[][] {
+function precessionLongTermMatrix(t: number): number[][] {
     const v = normalize(equatorPole(t));
     const w = eclipticPole(t);
     const c = normalize(cross(v, w));
@@ -115,11 +100,32 @@ function longTermPrecessionMatrix(t: number): number[][] {
 }
 
 /**
- * Long-term precession matrix, including frame bias
+ * Source: IAUCircular179.pdf, p44
  */
-function ltpPBMAT(t: number): number[][] {
-    const pMat = longTermPrecessionMatrix(t);
-    return math.multiply(pMat, FRAME_BIAS_MATRIX).valueOf() as number[][];
+function precessionBasicMatrix(t: number): math.Matrix {
+    const zeCoeffs = [2.650545, 2306.083227, 0.2988499, 0.01801828, -0.000005971, -0.0000003173];
+    const zCoeffs = [-2.650545, 2306.077181, 1.0927348, 0.01826837, -0.000028596, -0.0000002904];
+    const thCoeffs = [0, 2004.191903, -0.4294934, -0.04182264, -0.000007089, -0.0000001274];
+
+    const ze = evaluatePolynomial(zeCoeffs, t) * cst.ARCSEC;
+    const z = evaluatePolynomial(zCoeffs, t) * cst.ARCSEC;
+    const th = evaluatePolynomial(thCoeffs, t) * cst.ARCSEC;
+
+    return math.multiply(
+        rotationMatrix(2, z),
+        rotationMatrix(1, -th), 
+        rotationMatrix(2, ze)
+    );
 }
 
-export { FRAME_BIAS_MATRIX, eclipticPole, equatorPole, longTermPrecessionMatrix, ltpPBMAT };
+/**
+ * Computes precession matrix at given time
+ * @param method Default "long"
+ */
+function precessionMatrix(t: number, method: "long"|"basic"="long") {
+    if (method === "basic")
+        return precessionBasicMatrix(t);
+    return precessionLongTermMatrix(t);
+}
+
+export { eclipticPole, equatorPole, precessionMatrix };

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-import { planetPosition } from './astro/orbitalElements';
+import { planetPosition } from './astro/ephemeris/orbitalElements';
 import { earthPosition, moonPosition } from './astro/earth';
 import * as math from 'mathjs';
 import { horizontalFromGCRS } from './astro/frames';

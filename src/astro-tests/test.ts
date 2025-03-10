@@ -8,13 +8,13 @@
  */
 
 import * as math from "mathjs";
-import { nutationMatrix, precessionMatrix } from "../astro/formulae";
 import { length, stats } from "../astro/mathTools";
 import { jcFromUnix, unixFromJd, unixFromFractionalYear, unixFromJc, jdFromUnix } from "../astro/time";
-import { nutation2000B, nutationMatrix2000B } from "../astro/nutation2000b";
+import { nutation, nutationMatrix } from "../astro/nutation";
 import { NUTATION_TESTS } from "./nutationTests";
-import { FRAME_BIAS_MATRIX, ltpPBMAT, eclipticPole, equatorPole, longTermPrecessionMatrix } from "../astro/precessionLong";
+import { eclipticPole, equatorPole, precessionMatrix } from "../astro/precession";
 import { ltp_PBMAT, precessionTest_GM } from "./precessionGM";
+import { cst } from "../astro/constants";
 
 /**
  * Compares values to the IAU SOFA iauNut00b() routine. 
@@ -27,7 +27,8 @@ function testNutation1() {
         const tUnix = unixFromJd(jd);
         const t = jcFromUnix(tUnix);
 
-        const y = nutation2000B(t);
+        const y0 = nutation(t);
+        const y = [y0[1], y0[2]];
         const z = [NUTATION_TESTS[k][1], NUTATION_TESTS[k][2]];
 
         const diff_yz = [y[0]-z[0], y[1]-z[1]];
@@ -48,8 +49,8 @@ function testNutation2(yearStart: number, yearEnd: number, yearStep: number) {
         const tUnix = unixFromFractionalYear(year);
         const t = jcFromUnix(tUnix);
 
-        const x = nutationMatrix(t).valueOf() as number[][];
-        const y = nutationMatrix2000B(t);
+        const x = nutationMatrix(t, "basic").valueOf() as number[][];
+        const y = nutationMatrix(t);
 
         const diff_xy = (math.subtract(y, x).valueOf() as number[][]).flat();
         const err = length(diff_xy) / length((math.subtract(y, math.diag([1, 1, 1])).valueOf() as number[][]).flat());
@@ -70,8 +71,8 @@ function testNutation() {
     const je = -1373.5959534565;
     const t0 = (je - 2000) / 100;
     console.log("jd(t0)", jdFromUnix(unixFromJc(t0)));
-    console.log("nutationMatrix(t0)", nutationMatrix(t0).valueOf() as number[][]);
-    console.log("nutationMatrix2000B(t0)", nutationMatrix2000B(t0));
+    console.log("basic nutationMatrix(t0)", nutationMatrix(t0, "basic").valueOf() as number[][]);
+    console.log("2000B nutationMatrix(t0)", nutationMatrix(t0));
 }
 
 /**
@@ -83,11 +84,12 @@ function testPrecession0() {
 
     const je = -1373.5959534565;
     const t = (je - 2000) / 100;
-    console.log("FRAME_BIAS_MATRIX", FRAME_BIAS_MATRIX);
+    const pMat = precessionMatrix(t);
+    console.log("FRAME_BIAS_MATRIX", cst.FRAME_BIAS_MATRIX);
     console.log("PECL", eclipticPole(t));
     console.log("PEQU", equatorPole(t));
-    console.log("PMAT", longTermPrecessionMatrix(t));
-    console.log("PBMAT", ltpPBMAT(t));
+    console.log("PMAT", pMat);
+    console.log("PBMAT", math.multiply(pMat, cst.FRAME_BIAS_MATRIX).valueOf());
 }
 
 // Compare the two implementations of the method in "J. Vondrák et al.: New precession expressions".
@@ -96,7 +98,7 @@ function testPrecession1() {
     for (let year = -200000; year < 200000; year += 50) {
         const t = jcFromUnix(unixFromFractionalYear(year));
         const je = 100*t + 2000;
-        const pMat1 = ltpPBMAT(t);
+        const pMat1 = math.multiply(precessionMatrix(t), cst.FRAME_BIAS_MATRIX).valueOf() as number[][];
         const pMat2 = [[0,0,0], [0,0,0], [0,0,0]];
         ltp_PBMAT(je, pMat2);
 
@@ -116,8 +118,8 @@ function testPrecession2(yearStart: number, yearEnd: number, yearStep: number) {
     for (let year = yearStart; year < yearEnd; year += yearStep) {
         const t = jcFromUnix(unixFromFractionalYear(year));
         const je = 100*t + 2000;
-        const pMat1 = ltpPBMAT(t);
-        const pMat2 = precessionMatrix(t);
+        const pMat1 = precessionMatrix(t);
+        const pMat2 = precessionMatrix(t, "basic");
 
         const diff = math.subtract(pMat2, pMat1).valueOf() as number[][];
         const err = length(diff.flat());

@@ -1,19 +1,21 @@
 import * as math from "mathjs";
-import React, { Suspense } from 'react';
+import React from 'react';
 import { Box, Container, Typography } from '@mui/material';
-import { test } from './astro-tests/test';
-import { Graph } from './Graph';
-import { ltpPBMAT } from './astro/precessionLong';
-import { nutationMatrix2000B } from './astro/nutation2000b';
-import { jcFromUnix, unixFromJc } from "./astro/time";
-const ThreeScene = React.lazy(() => import('./ThreeScene'));
+import { Link as RouterLink } from 'react-router-dom';
+import { Link as MUILink } from '@mui/material';
+import { Graph } from '../Graph';
+import { jcFromUnix } from "../astro/time";
+import { precessionMatrix } from "../astro/precession";
+import { nutationMatrix } from "../astro/nutation";
+
+const ThreeScene = React.lazy(() => import('../ThreeScene'));
 
 const tNow = jcFromUnix(Date.now()/1000);
 
 function getPoint(t: number, precession: boolean, nutation: boolean) {
-    let m = nutation ? nutationMatrix2000B(t) : math.diag([1, 1, 1]);
+    let m = nutation ? nutationMatrix(t) : math.diag([1, 1, 1]);
     if (precession)
-        m = math.multiply(m, ltpPBMAT(t)).valueOf() as number[][];
+        m = math.multiply(m, precessionMatrix(t)).valueOf() as number[][];
     m = math.transpose(m);
     const v = math.multiply(m, [0, 0, 1]).valueOf() as number[];
     return { x: v[0], y: v[1] };
@@ -30,9 +32,7 @@ function getData(precession: boolean, nutation: boolean, timeScale: number, n: n
     return data;
 }
 
-const App: React.FC = () => {
-    test();
-
+const PrecessionPage: React.FC = () => {
     const dataTest = (s: number) => Array.from({ length: 1000 }, (_, k) => ({ x: k/10, y: Math.sin(s*k/10) }));
     // const data10 = getData(true, false, 1000, 200);
     // const data01 = getData(false, true, 0.1, 5000);
@@ -79,13 +79,8 @@ const App: React.FC = () => {
         <Container maxWidth="xl">
             <Box display="flex" justifyContent="center" sx={{py: 2}}>
                 <Typography variant="h2">
-                    Astro
+                    Sky
                 </Typography>
-            </Box>
-            <Box style={{ width: "100%", height: "600px" }}>
-            <Suspense fallback={<Box display="flex" justifyContent="center"><Typography>Loading..</Typography></Box>}>
-                <ThreeScene />
-            </Suspense>
             </Box>
             <Box style={{ width: "100%" }}>
                 <Graph 
@@ -120,11 +115,11 @@ const App: React.FC = () => {
                     Text here
                 </Typography>
             </Box>
-            {/* <MUILink component={RouterLink} to="/" variant="body1" color="primary">
+            <MUILink component={RouterLink} to="/" variant="body1" color="primary">
                 Back
-            </MUILink> */}
+            </MUILink>
         </Container>
     );
 };
 
-export { App };
+export { PrecessionPage };

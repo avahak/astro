@@ -16,21 +16,24 @@
  */
 
 import * as math from "mathjs";
-import { GAST, nutationPrecessionMatrix } from "./formulae";
+import { GAST } from "./formulae";
 import { rotationMatrix } from "./mathTools";
 import { earthPosition, earthRadius } from "./earth";
+import { nutationMatrix } from "./nutation";
+import { cst } from "./constants";
+import { precessionMatrix } from "./precession";
 
 function TIRSFromGCRS(t: number) {
-    const np = nutationPrecessionMatrix(t);
+    const npb = math.multiply(nutationMatrix(t), precessionMatrix(t), cst.FRAME_BIAS_MATRIX);
     const gast = rotationMatrix(2, -GAST(t));       // NOTE! Sign from sign differences in rotation matrices
-    return math.multiply(gast, np);
+    return math.multiply(gast, npb);
 }
 
 function horizontalFromITRS(location: GeoLocation, t: number) {
     const r1 = rotationMatrix(2, -Math.PI/2);
     const r2 = rotationMatrix(1, -Math.PI/2 + location.lat);
     const r3 = rotationMatrix(2, -location.lon);
-    return math.multiply(r1, math.multiply(r2, r3));
+    return math.multiply(r1, r2, r3);
 }
 
 function horizontalFromGCRS(location: GeoLocation, t: number) {

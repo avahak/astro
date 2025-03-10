@@ -3,8 +3,8 @@
  * for planets and minor planets.
  */
 
-import { cst } from "./constants";
-import { cartesianFromSpherical, xRotate, zRotate } from "./mathTools";
+import { cst } from "../constants";
+import { cartesianFromSpherical, xRotate, zRotate } from "../mathTools";
 
 /**
  * Returns eccentric anomaly given mean anomaly and eccentricity.

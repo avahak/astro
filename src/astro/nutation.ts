@@ -1,6 +1,6 @@
 /**
  * Nutation with IAU 2000B series (only 77 terms compared to 1365 in 2000A).
- * http://www.iausofa.org/2003_0429/src/nut00b.for
+ * See http://www.iausofa.org/2003_0429/src/nut00b.for
  * Similar code for comparison:
  * Greg Miller 2022, www.celestialprogramming.com/snippets/nutation2000b.html
  */
@@ -97,21 +97,25 @@ const NUTATION_COEFFS = [
 ];
 
 /**
+ * Coefficients for Earth's axial tilt
+ */
+const EP_COEFFS = [84381.406, -46.836769, -0.0001831, 0.0020034, -0.000000576, -0.0000000434];
+
+/**
  * IAU 2000B Nutation series with 77 terms.
  */
-function nutation2000B(t: number) {
-    // 1296000 arcseconds in a full circle
+function nutation2000B(t: number): [number, number, number] {
     const fArgs = [
         // L, Mean anomaly of the Moon
-        ((485868.249036 + 1717915923.2178*t) % 1296000)*cst.ARCSEC,
+        (485868.249036 + 1717915923.2178*t)*cst.ARCSEC,
         // L', Mean anomaly of the Sun
-        ((1287104.79305 + 129596581.0481*t) % 1296000)*cst.ARCSEC,
+        (1287104.79305 + 129596581.0481*t)*cst.ARCSEC,
         // F, Mean argument of the latitude of the Moon
-        ((335779.526232 + 1739527262.8478*t) % 1296000)*cst.ARCSEC,
+        (335779.526232 + 1739527262.8478*t)*cst.ARCSEC,
         // D, Mean elongation of the Moon from the Sun
-        ((1072260.70369 + 1602961601.2090*t) % 1296000)*cst.ARCSEC,
+        (1072260.70369 + 1602961601.2090*t)*cst.ARCSEC,
         // Omega, Mean longitude of the ascending node of the Moon
-        ((450160.398036 - 6962890.5431*t) % 1296000)*cst.ARCSEC,
+        (450160.398036 - 6962890.5431*t)*cst.ARCSEC,
     ];
 
     let dp = 0;
@@ -121,7 +125,6 @@ function nutation2000B(t: number) {
         const coeffs = NUTATION_COEFFS[k];
         for (let j = 0; j < fArgs.length; j++)
             arg += fArgs[j] * coeffs[j];
-        arg = arg % cst.TAU;
         dp += (coeffs[5] + coeffs[6]*t)*Math.sin(arg) + coeffs[7]*Math.cos(arg);
         de += (coeffs[8] + coeffs[9]*t)*Math.cos(arg) + coeffs[10]*Math.sin(arg);
     }
@@ -132,22 +135,56 @@ function nutation2000B(t: number) {
     dp += -0.135e-3 * cst.ARCSEC;
     de += 0.388e-3 * cst.ARCSEC;
 
-    return [de, dp];
+    // Earth's axial tilt
+    const ep = evaluatePolynomial(EP_COEFFS, t) * cst.ARCSEC;
+
+    return [ep, de, dp];
 }
 
 /**
- * IAU 2000B Nutation matrix. 
+ * Creates nutation matrix from nutation parameters. 
  */
-function nutationMatrix2000B(t: number): number[][] {
-    const [de, dp] = nutation2000B(t);
-    const epCoeffs = [84381.406, -46.836769, -0.0001831, 0.0020034, -0.000000576, -0.0000000434];
-    const ep = evaluatePolynomial(epCoeffs, t) * cst.ARCSEC;
+function nutationMatrixFromParameters(ep: number, de: number, dp: number): number[][] {
     return math.multiply(
         rotationMatrix(0, ep + de),
-        math.multiply(
-            rotationMatrix(2, dp), 
-            rotationMatrix(0, -ep))
+        rotationMatrix(2, dp), 
+        rotationMatrix(0, -ep)
     ).valueOf() as number[][];
 }
 
-export { nutation2000B, nutationMatrix2000B };
+/**
+ * Basic nutation formula for dates near J2000
+ * Source: Fundamental Astronomy, p39 (N_212.pdf)
+ */
+function nutationBasic(t: number): [number, number, number] {
+    const ep = evaluatePolynomial(EP_COEFFS, t) * cst.ARCSEC;
+    
+    const d = t * 36525;
+    const a1 = (125.0 - 0.05295*d) * cst.DEG;
+    const a2 = (200.9 + 1.97129*d) * cst.DEG;
+
+    const d_ep = (0.0026*Math.cos(a1) + 0.0002*Math.cos(a2)) * cst.DEG;
+    const d_psi = (-0.0048*Math.sin(a1) - 0.0004*Math.sin(a2)) * cst.DEG;
+
+    return [ep, d_ep, d_psi];
+}
+
+/**
+ * Computes nutation parameters
+ * @param method Default "IAU2000B"
+ */
+function nutation(t: number, method: "IAU2000B"|"basic"="IAU2000B"): [number, number, number] {
+    if (method === "basic") 
+        return nutationBasic(t);
+    return nutation2000B(t);
+}
+
+/**
+ * Computes nutation matrix
+ * @param method Default "IAU2000B"
+ */
+function nutationMatrix(t: number, method: "IAU2000B"|"basic"="IAU2000B"): number[][] {
+    return nutationMatrixFromParameters(...nutation(t, method));
+}
+
+export { nutation, nutationMatrix };

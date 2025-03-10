@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import vsGeneric from './shaders/vsGeneric.glsl?raw';
 import fsEarth from './shaders/fsEarth.glsl?raw';
-import { planetPosition } from './astro/orbitalElements';
+import { planetPosition } from './astro/ephemeris/orbitalElements';
 import { earthPosition, moonPosition } from './astro/earth';
 import * as math from 'mathjs';
 import { horizontalFromGCRS } from './astro/frames';
@@ -37,6 +37,7 @@ class EarthScene {
         const textureLoader = new THREE.TextureLoader();
         const textureTerrain = textureLoader.load('/astro/klippad_sunrise_2_4k.webp');
         // const textureTerrain = textureLoader.load('/astro/klippad_sunrise_2_4k.png');
+        textureTerrain.colorSpace = THREE.SRGBColorSpace;
         textureTerrain.generateMipmaps = false;
         const textureDepth = textureLoader.load('/astro/depth.png');
         textureDepth.wrapS = THREE.ClampToEdgeWrapping;

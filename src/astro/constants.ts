@@ -2,9 +2,12 @@
  * Miscellaneous atronomical constants.
  * Units are radian for angles, AU for distance, Julian century (36525 days) for time.
  */
+import * as math from "mathjs";
+import { rotationMatrix } from "./mathTools";
 
 const TAU = 2*Math.PI;
 const DEG = Math.PI / 180;
+const ARCSEC = DEG / 60 / 60;
 const M = 1 / 149597870691;                 // IAUCircular179.pdf p32
 const KM = 1000 * M;
 const S = 1 / (36525*24*3600);
@@ -20,13 +23,23 @@ const MASS_RATIO_SUN_EARTH = 332946.050895;     // mass of sun / mass of earth
 const RATIO_EMB_MOON_TO_EARTH_MOON = 1.0/(1.0 + 1.0/MASS_RATIO_EARTH_MOON);     // ~0.988
 const RATIO_EMB_EARTH_TO_EARTH_MOON = RATIO_EMB_MOON_TO_EARTH_MOON - 1.0;       // ~-0.012
 
+/**
+ * Transformation from GCRS to the mean equator and equinox of J2000.0.
+ * NOTE! Our rotation matrices have opposite sign than those of IAU Circular 179!
+ */
+const FRAME_BIAS_MATRIX = math.multiply(
+    rotationMatrix(0, -0.0068192 * ARCSEC), 
+    rotationMatrix(1, 0.016617 * ARCSEC), 
+    rotationMatrix(2, 0.0146 * ARCSEC), 
+).valueOf() as number[][];
+
 const cst = {
-    TAU, DEG, M, KM, S, G, GMS,
+    TAU, DEG, ARCSEC, M, KM, S, G, GMS,
     MASS_RATIO_EARTH_MOON, MASS_RATIO_SUN_EARTH,
     RATIO_EMB_MOON_TO_EARTH_MOON, RATIO_EMB_EARTH_TO_EARTH_MOON,
+    FRAME_BIAS_MATRIX,
 
     ARCMIN: DEG / 60,
-    ARCSEC: DEG / 60 / 60,
 
     // for equatorial <-> galactic conversion
     // Source: https://en.wikipedia.org/wiki/Galactic_coordinate_system
