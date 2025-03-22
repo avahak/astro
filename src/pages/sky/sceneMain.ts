@@ -1,16 +1,16 @@
 import * as THREE from 'three';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-import { planetPosition } from './astro/ephemeris/orbitalElements';
-import { earthPosition, moonPosition } from './astro/earth';
+import { planetPosition } from '../../astro/ephemeris/orbitalElements';
+import { earthPosition, moonPosition } from '../../astro/earth';
 import * as math from 'mathjs';
-import { horizontalFromGCRS } from './astro/frames';
-import { cst } from './astro/constants';
-import { clamp, length, rotationMatrix } from './astro/mathTools';
-import { jcFromUnix, unixFromJc, unixNow } from './astro/time';
+import { horizontalFromGCRS } from '../../astro/frames';
+import { cst } from '../../astro/constants';
+import { clamp, length, rotationMatrix } from '../../astro/mathTools';
+import { jcFromUnix, unixFromJc, unixNow } from '../../astro/time';
 import { EarthScene } from './sceneEarth';
 import { PostScene } from './scenePost';
 import { SpaceScene } from './sceneSpace';
-import { SceneParameters } from './parameters';
+import { SceneParameters } from '../../parameters';
 
 function computeTerrainLight(p: number[]): number {
     return clamp(2*p[2]/length(p), 0.1, 1);

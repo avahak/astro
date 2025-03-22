@@ -11,7 +11,6 @@ import { nutationMatrix } from "../astro/nutation";
 import { rotationalElements } from "../astro/ephemeris/rotationalElements";
 import { VSOP87AEphemeris } from "../astro/ephemeris/json87aEphemeris";
 import { MPP02Ephemeris } from "../astro/ephemeris/mpp02Ephemeris";
-const ThreeScene = React.lazy(() => import('../ThreeScene'));
 
 const tNow = jcFromUnix(Date.now()/1000);
 
@@ -34,16 +33,6 @@ function getData(precession: boolean, nutation: boolean, timeScale: number, n: n
     }
     return data;
 }
-
-const ThreeSceneSuspense: React.FC = () => {
-    return (
-        <Box style={{ width: "100%", height: "600px" }}>
-            <Suspense fallback={<Box display="flex" justifyContent="center"><Typography>Loading..</Typography></Box>}>
-                <ThreeScene />
-            </Suspense>
-        </Box>
-    );
-};
 
 const TestPage: React.FC = () => {
     const [vsop87a, setVSOP87A] = useState<VSOP87AEphemeris|null>(null);

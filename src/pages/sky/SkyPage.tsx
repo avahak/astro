@@ -3,15 +3,14 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { Box, Container, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Link as MUILink } from '@mui/material';
-import { test } from '../astro-tests/test';
-import { Graph } from '../Graph';
-import { jcFromUnix } from "../astro/time";
-import { precessionMatrix } from "../astro/precession";
-import { nutationMatrix } from "../astro/nutation";
-import { rotationalElements } from "../astro/ephemeris/rotationalElements";
-import { VSOP87AEphemeris } from "../astro/ephemeris/json87aEphemeris";
-import { MPP02Ephemeris } from "../astro/ephemeris/mpp02Ephemeris";
-const ThreeScene = React.lazy(() => import('../ThreeScene'));
+import { Graph } from '../../Graph';
+import { jcFromUnix } from "../../astro/time";
+import { precessionMatrix } from "../../astro/precession";
+import { nutationMatrix } from "../../astro/nutation";
+import { rotationalElements } from "../../astro/ephemeris/rotationalElements";
+import { VSOP87AEphemeris } from "../../astro/ephemeris/json87aEphemeris";
+import { MPP02Ephemeris } from "../../astro/ephemeris/mpp02Ephemeris";
+const ThreeScene = React.lazy(() => import('./ThreeScene'));
 
 const tNow = jcFromUnix(Date.now()/1000);
 

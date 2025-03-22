@@ -1,16 +1,16 @@
-// Compare with
-// https://en.wikipedia.org/wiki/File:Planets_and_dwarf_planets%27_tilt_and_rotation_speed.webm
+// Same as sceneSpace.ts?
+// Could have two+ modes for drawing, 1 for stereographic
 
 import * as THREE from 'three';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-import { matrixFromRotationalElements, rotationalElements } from './astro/ephemeris/rotationalElements';
+import { matrixFromRotationalElements, rotationalElements } from '../../astro/ephemeris/rotationalElements';
 import * as math from 'mathjs';
-import { rotationMatrix } from './astro/mathTools';
-import { cst } from './astro/constants';
+import { rotationMatrix } from '../../astro/mathTools';
+import { cst } from '../../astro/constants';
 
 const naifIds = [301, 199, 299, 399, 499, 599, 699, 799, 899];
 
-class RotationScene {
+class StarsScene {
     container: HTMLDivElement;
     camera: THREE.Camera;
     scene!: THREE.Scene;
@@ -179,4 +179,4 @@ class RotationScene {
     }
 }
 
-export { RotationScene };
+export { StarsScene };

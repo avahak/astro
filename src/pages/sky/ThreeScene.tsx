@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { MainScene } from './sceneMain';
-import { InputListener } from './inputListener';
-import { clamp } from './astro/mathTools';
-import { cst } from './astro/constants';
+import { InputListener } from '../../inputListener';
+import { clamp } from '../../astro/mathTools';
+import { cst } from '../../astro/constants';
 
 const SceneComponent: React.FC = () => { 
     const containerRef = useRef<HTMLDivElement>(null);

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import vsGeneric from './shaders/vsGeneric.glsl?raw';
-import fsSpace from './shaders/fsSpace.glsl?raw';
+import vsGeneric from '../../shaders/vsGeneric.glsl?raw';
+import fsSpace from '../../shaders/fsSpace.glsl?raw';
 import { MainScene } from './sceneMain';
 
 class SpaceScene {

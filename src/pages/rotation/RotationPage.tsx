@@ -2,7 +2,7 @@ import React, { Suspense, useEffect, useRef } from 'react';
 import { Box, Container, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Link as MUILink } from '@mui/material';
-import { RotationScene } from '../sceneRotation';
+import { RotationScene } from './sceneRotation';
 
 const SceneComponent: React.FC = () => { 
     const containerRef = useRef<HTMLDivElement>(null);

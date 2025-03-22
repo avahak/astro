@@ -3,12 +3,10 @@ import React from 'react';
 import { Box, Container, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Link as MUILink } from '@mui/material';
-import { Graph } from '../Graph';
-import { jcFromUnix } from "../astro/time";
-import { precessionMatrix } from "../astro/precession";
-import { nutationMatrix } from "../astro/nutation";
-
-const ThreeScene = React.lazy(() => import('../ThreeScene'));
+import { Graph } from '../../Graph';
+import { jcFromUnix } from "../../astro/time";
+import { precessionMatrix } from "../../astro/precession";
+import { nutationMatrix } from "../../astro/nutation";
 
 const tNow = jcFromUnix(Date.now()/1000);
 
