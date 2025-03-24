@@ -8,7 +8,7 @@
  *
  * Solution:
  * 1. Pair segments within base segments (even-indexed vertices).
- * 2. If either subsegment crosses the antimeridian, move the middle points of the two subsegmentss:
+ * 2. If either subsegment crosses the antimeridian, move the middle points of the two subsegments:
  *    - Use elevation from the intersection point of the base segment.
  *    - Clamp azimuth to the antimeridian on same side as the base segment endpoint.
  * 3. Special case: If a subsegment intersects but the base does not, follow the base segment.

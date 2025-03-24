@@ -11,6 +11,8 @@ import { nutationMatrix } from "../astro/nutation";
 import { rotationalElements } from "../astro/ephemeris/rotationalElements";
 import { VSOP87AEphemeris } from "../astro/ephemeris/json87aEphemeris";
 import { MPP02Ephemeris } from "../astro/ephemeris/mpp02Ephemeris";
+// import JSZip from "jszip";
+import pako from 'pako';
 
 const tNow = jcFromUnix(Date.now()/1000);
 
@@ -41,22 +43,39 @@ const TestPage: React.FC = () => {
     const loadData = async (fileName: string, process: (data: any) => void) => {
         console.log("loadData()");
         try {
-            const response = await fetch(`/astro/${fileName}`);
+            const response = await fetch(`/astro/${fileName}.gz`);
             if (!response.ok) {
-                throw new Error('Failed to fetch JSON file');
+                throw new Error('Failed to fetch file');
             }
-            const data = await response.json();
-            process(data);
+            const contentType = response.headers.get('Content-Type');
+            console.log('contentType', contentType);
+            if (contentType?.includes('application/json')) {
+                // Data is in JSON format (decompressed)
+                console.log('')
+                const jsonData = await response.json();
+                process(jsonData);
+            } else {
+                // Assume the content is gzipped and needs decompression
+                const blob = await response.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+
+                // Use pako to inflate the gzipped data
+                const decompressedData = pako.inflate(new Uint8Array(arrayBuffer), { to: 'string' });
+                process(JSON.parse(decompressedData));
+            }
         } catch (error) {
-            console.error('Error loading JSON:', error);
+            console.error('Error loading data:', error);
         }
     };
 
     useEffect(() => {
-        const processVSOP87A = (data: any) => setVSOP87A(new VSOP87AEphemeris(data));
-        const processMPP02 = (data: any) => setMPP02(new MPP02Ephemeris(data));
-        loadData('vsop87a_truncated_medium.json', processVSOP87A);
-        loadData('mpp02_llr_truncated_medium.json', processMPP02);
+        // const processVSOP87A = (data: any) => setVSOP87A(new VSOP87AEphemeris(data));
+        // const processMPP02 = (data: any) => setMPP02(new MPP02Ephemeris(data));
+        // loadData('vsop87a_truncated_medium.json', processVSOP87A);
+        // loadData('mpp02_llr_truncated_medium.json', processMPP02);
+
+        const processAstro = (data: any) => console.log(data);
+        loadData('astro.json', processAstro);
     }, []);
     
     if (!vsop87a || !mpp02)
