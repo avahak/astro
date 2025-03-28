@@ -15,7 +15,6 @@ class VSOP87AEphemeris {
     constructor(source: any) {
         this.bodies = source['bodies'];
         this.matrix = source['matrix'];
-        console.log('bodies', this.bodies);
     }
 
     /**

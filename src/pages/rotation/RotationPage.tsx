@@ -17,9 +17,7 @@ const SceneComponent: React.FC = () => {
 
     return (
         <Box style={{ width: "100%", height: "600px" }}>
-            <Suspense fallback={<Box display="flex" justifyContent="center"><Typography>Loading..</Typography></Box>}>
-                <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-            </Suspense>
+            <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
         </Box>
     );
 };

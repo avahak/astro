@@ -123,12 +123,12 @@ def parse_stars(vmag_limit=10.0):
 
     # Extended XHIP with: HR, BSC_Name, IAU_Name
     stars = np.zeros(len(xhip_main), dtype=[
-        ('HIP','i'), ('Comp','U6'), ('HD','i'), ('HR', 'i'),            # designations
-        ('XHIP_Name','U48'), ('BSC_Name', 'U9'), ('IAU_Name', 'U18'),   # names
-        ('RA','f8'), ('DE','f8'), ('Plx','f8'),                         # position
-        ('pmRA','f8'), ('pmDE','f8'), ('RV','f8'),                      # motion
-        ('Vmag','f8'), ('Bmag','f8'), ('SpType','U26'),                 # photometric data
-        ('Cst','U3'), ('GrpName','U106'),                               # grouping
+        ('HIP','i'), ('Comp','U6'), ('HD','i'), ('HR', 'i'), ('bayer','U20'),   # designations
+        ('XHIP_Name','U48'), ('BSC_Name', 'U9'), ('IAU_Name', 'U18'),           # names
+        ('RA','f8'), ('DE','f8'), ('Plx','f8'),                                 # position
+        ('pmRA','f8'), ('pmDE','f8'), ('RV','f8'),                              # motion
+        ('Vmag','f8'), ('Bmag','f8'), ('SpType','U26'),                         # photometric data
+        ('Cst','U3'), ('GrpName','U106'),                                       # grouping
     ])
 
     # Copy columns from xhip_main to stars:
@@ -164,23 +164,25 @@ def parse_stars(vmag_limit=10.0):
     with file_op.gzip_open(file_path, 'rt') as f:
         bsc5 = file_op.read_fixed_length_format(f, fields, ())
 
-    # Assign HR, BSC_Name in stars from bsc5
+    # Assign HR, BSC_Name from bsc5
     for bsc_row in bsc5:
         hd = bsc_row['HD']
         for field in ('HR', 'BSC_Name'):
             stars[field][stars_hd_index.get(hd, [])] = bsc_row[field]
 
-    # Read identifiers from IAU-CSN.txt:
-    file_path = R'd:/resources/astro/IAU-CSN.txt'
-    fields = (('IAU_Name',1,18), ('HD',97,103,'i',0))
+    # "proper names","Designation","HIP","Bayer ID","Constellation","Origin","Ethnic-Cultural_Group_or_Language","Reference","Additional info, e.g. language corruptions","Date of Adoption"
+    file_path = R'd:/resources/astro/IAU-Catalog of Star Names (2025).csv'
+    fields = (('name',), ('designation',), ('HIP','i'), ('bayer',), ('con',),) 
     with file_op.regular_open(file_path, 'rt', encoding='utf-8') as f:
-        iau_names = file_op.read_fixed_length_format(f, fields, ('#', '$'))
-    iau_names = iau_names[iau_names['HD'] != 0]
+        iau_names = file_op.read_csv_format(f, fields, skip_header_lines=1)
+    iau_names = iau_names[iau_names['HIP'] != 0]
 
-    # Assign IAU_Name in stars from iau_names
-    for iau_names_row in iau_names:
-        hd = iau_names_row['HD']
-        stars['IAU_Name'][stars_hd_index.get(hd, [])] = iau_names_row['IAU_Name']
+    # Assign IAU_Name and bayer from iau_names
+    for row in iau_names:
+        hip = row['HIP']
+        stars['IAU_Name'][stars_hip_index.get(hip, [])] = row['name']
+        if row['bayer']:
+            stars['bayer'][stars_hip_index.get(hip, [])] = re.sub(r'\s+', ' ', row['bayer']).strip()
 
     # Apply true motion from J1991.25 to J2000.0:
     for row in stars:
@@ -212,13 +214,24 @@ def parse_stars(vmag_limit=10.0):
     print(f'parse_stars: stars: {len(stars)}, {file_op.json_string_size(stars)/1024:.2f} KB')
     return stars
 
+def undo_truncation(s: str) -> str:
+    """
+    Undos truncation used in constbnd.dat
+    """
+    s = re.sub(r'66$', '6666666666666', s)
+    s = re.sub(r'67$', '6666666666666', s)
+    s = re.sub(r'33$', '3333333333333', s)
+    s = re.sub(r'22$', '2222222222222', s)
+    s = re.sub(r'83$', '8333333333333', s)
+    return s
+
 def parse_constellations():
     """
     Returns tables parsed from contellation data.
     """
     # Constellation boundaries
     file_path = R'd:/resources/astro/constellation_boundary_data/constbnd.dat'
-    fields = (('dec',10,18,'f'), ('ra',1,8,'f'), ('abbr',20,23)) 
+    fields = (('dec',10,18), ('ra',1,8), ('abbr',20,23)) 
     with file_op.regular_open(file_path, 'rt', encoding='utf-8') as f:
         constbnd = file_op.read_fixed_length_format(f, fields, ())
 
@@ -243,8 +256,10 @@ def parse_constellations():
         if row['abbr'] == next_row['abbr']:
             # First and last row in the same constellation are the same, so drop last
             con: dict = constellations.setdefault(row['abbr'].upper(), {})
+            ra = cst.HOUR_AS_ANGLE * float(undo_truncation(row['ra']))
+            dec = cst.DEG * float(undo_truncation(row['dec']))
             boundary: list = con.setdefault('boundary_1875', [])
-            boundary.append((cst.HOUR_AS_ANGLE*row['ra'], cst.DEG*row['dec']))
+            boundary.append((ra, dec))
 
     for row in names:
         con: dict = constellations.setdefault(row['name_abbr'].upper(), {})
@@ -258,28 +273,6 @@ def parse_constellations():
     print(f'parse_constellations: constellations: {len(constellations)}, {file_op.json_string_size(constellations)/1024:.2f} KB')
     return constellations
 
-
-    # boundary_pairs = []
-    # row0 = 0        # keeps track of first row for current constellation
-    # m = len(constbnd)
-    # for row in range(m):
-    #     row1 = (row+1) % m      # next row
-    #     if constbnd[row]['abbr'] != constbnd[row1]['abbr']:
-    #         # Swap so that row0 points to next row and row1 to 1st row
-    #         row0, row1 = row1, row0
-    #     boundary_pairs.append((constbnd[row]['abbr'], 
-    #             cst.DEG*constbnd[row]['dec'], cst.HOUR_AS_ANGLE*constbnd[row]['ra'], 
-    #             cst.DEG*constbnd[row1]['dec'], cst.HOUR_AS_ANGLE*constbnd[row1]['ra']))
-    # dt = np.dtype([('abbr', 'U4'), ('dec1', 'f8'), ('ra1', 'f8'), ('dec2', 'f8'), ('ra2', 'f8')])
-    # boundary_pairs = np.array(boundary_pairs, dt)
-
-    # id_and_names = rfn.append_fields(names, 'id', np.empty(len(names), dtype=np.int32))
-    # id_and_names['id'] = [k+1 for k in range(len(names))]
-
-    # print(f'parse_constellations: boundary_pairs: {len(boundary_pairs)}, {file_op.json_string_size(boundary_pairs)/1024:.2f} KB')
-    # print(f'parse_constellations: star_pairs: {len(star_pairs)}, {file_op.json_string_size(star_pairs)/1024:.2f} KB')
-    # print(f'parse_constellations: id_and_names: {len(id_and_names)}, {file_op.json_string_size(id_and_names)/1024:.2f} KB')
-    # return boundary_pairs, star_pairs, id_and_names
 
 def parse_clusters():
     """

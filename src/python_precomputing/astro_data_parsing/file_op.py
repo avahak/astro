@@ -60,17 +60,20 @@ def _decomment(f, comment_separators):
         if line.strip():
             yield line
 
-def read_csv_format(f, fields, delimiter=',', comment_separators=('#',)):
+def read_csv_format(f, fields, delimiter=',', comment_separators=('#',), skip_header_lines=0):
     """
     Returns a structured numpy array constructed from reading a CSV-formatted file.
 
-    Fields is a list of column descriptions of type (name,type,default_value_in_case_parsing_fails),
-    where type can be 'f' (float), 'i' (int), and anything else or absence defaulting to a string.
-    Example of fields: (('name',), ('i_field','i'), ('f_field','f',1.0))
+    Fields is a list of column descriptions of type 
+    (name,type,default_value_in_case_parsing_fails),
+    where type can be 'f' (float), 'i' (int), and anything else or absence defaulting 
+    to a string. Example of fields: (('name',), ('i_field','i'), ('f_field','f',1.0))
     """
     values = []
     reader = csv.reader(_decomment(f, comment_separators), delimiter=delimiter, skipinitialspace=True)
-    for line in reader:
+    for line_k, line in enumerate(reader):
+        if line_k < skip_header_lines:
+            continue
         values_line = []
         for k, field in enumerate(fields):
             value = line[k]

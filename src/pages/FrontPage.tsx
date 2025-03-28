@@ -28,6 +28,10 @@ const FrontPage = () => {
                 <MUILink component={RouterLink} to="/spherical" variant="body1" color="primary">
                     Spherical
                 </MUILink>
+                <br />
+                <MUILink component={RouterLink} to="/stars" variant="body1" color="primary">
+                    Stars
+                </MUILink>
             </Box>
             <Typography variant="h6">
                 Helpers (ignore these)
