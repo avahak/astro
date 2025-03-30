@@ -164,7 +164,8 @@ class SplineScene {
                 conTexture: { value: this.constellations.conTexture },
                 size: { value: this.constellations.size },
                 resolution: { value: null },
-                time: { value: 0 }
+                time: { value: 0 },
+                mvMatrix: { value: null },
             },
             vertexShader: vsCons,
             fragmentShader: fsCons,
@@ -195,7 +196,10 @@ class SplineScene {
         // this.splineObject.setRotationFromEuler(new THREE.Euler(0, 0, 0));
         // this.splineObject.setRotationFromEuler(new THREE.Euler(0, 0, 1.0+5.0*t));
         // this.scene.setRotationFromEuler(new THREE.Euler(0.2*Math.sin(31*t), 0.2*Math.cos(29*t), 15*t));
-        this.camera.lookAt(new THREE.Vector3(Math.cos(31*t), Math.sin(29*t), -1.0))
+        this.camera.lookAt(new THREE.Vector3(Math.cos(31*t), Math.sin(29*t), -1.0));
+
+        this.shader.uniforms.mvMatrix.value = this.camera.matrixWorld;
+        console.log(this.shader.uniforms.mvMatrix.value);
 
         this.renderer.render(this.scene, this.camera);
     }
