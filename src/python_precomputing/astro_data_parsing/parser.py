@@ -228,6 +228,8 @@ def undo_truncation(s: str) -> str:
 def parse_constellations():
     """
     Returns tables parsed from contellation data.
+    NOTE Serpens creates three entries: SER, SER1, SER2. SER1 and SER2 contain only
+    boundary data for the two parts of the constellation boundary.
     """
     # Constellation boundaries
     file_path = R'd:/resources/astro/constellation_boundary_data/constbnd.dat'
@@ -264,11 +266,6 @@ def parse_constellations():
     for row in names:
         con: dict = constellations.setdefault(row['name_abbr'].upper(), {})
         con['names'] = (row['name'], row['name_e'], row['name_g'])
-
-    # Serpens (SER) has boundary split into SER1, SER2. Put them both in SER
-    constellations['SER']['boundary_1875'] = [constellations['SER1']['boundary_1875'], constellations['SER2']['boundary_1875']]
-    del constellations['SER1']
-    del constellations['SER2']
 
     print(f'parse_constellations: constellations: {len(constellations)}, {file_op.json_string_size(constellations)/1024:.2f} KB')
     return constellations

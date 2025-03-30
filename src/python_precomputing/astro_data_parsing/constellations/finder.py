@@ -34,11 +34,7 @@ class ConstellationFinder:
         self.table = {}
         for con in astro['constellations']:
             points = astro['constellations'][con]['boundary_1875']
-            if con == 'SER':
-                self.table['SER1'] = points[0]
-                self.table['SER2'] = points[1]
-            else:
-                self.table[con] = points
+            self.table[con] = points
         for con, points in self.table.items():
             points_new = []
             for k in range(len(points)):

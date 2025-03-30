@@ -1,7 +1,6 @@
 """
 Preliminary work investigating how constellation boundaries could be computed better.
 """
-
 from fractions import Fraction
 from math import lcm
 import re

@@ -1,16 +1,19 @@
 import * as THREE from 'three';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { UCBSplineGroup } from './UCBSpline';
-import { OrbitControls } from 'three/examples/jsm/Addons.js';
+import vsCons from './shaders/vsCons.glsl?raw';
+import fsCons from './shaders/fsCons.glsl?raw';
+import { Constellations } from '../../constellations/precompute';
 
 function randomColor(k: number) {
-    const f = (j: number) => 1 - Math.sin(Math.PI*2*j)**2;
+    const f = (j: number) => 1 - Math.sin(j)**2;
     return [f(3*k+42), f(2*k+51), f(k+73)];
 }
 
 class SplineScene {
     container: HTMLDivElement;
-    camera!: THREE.Camera;
+    astro: any;
+    camera!: THREE.OrthographicCamera;
     scene!: THREE.Scene;
     renderer: THREE.WebGLRenderer;
     cleanUpTasks: (() => void)[];
@@ -18,13 +21,16 @@ class SplineScene {
     lastTime: number = 0;
     gui: any;
     isStopped: boolean = false;
-    controls!: OrbitControls;
+
+    constellations!: Constellations;
+    shader!: THREE.ShaderMaterial;
 
     splineGroup!: UCBSplineGroup;
     splineObject!: THREE.Object3D;
 
-    constructor(container: HTMLDivElement) {
+    constructor(container: HTMLDivElement, astro: any) {
         this.container = container;
+        this.astro = astro;
         this.cleanUpTasks = [];
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setClearColor(0x000000, 0);
@@ -53,11 +59,12 @@ class SplineScene {
         console.log(`Resize! (${clientWidth}, ${clientHeight})`);
         this.renderer.setSize(clientWidth, clientHeight);
         const aspect = clientWidth / clientHeight;
-        if (this.camera instanceof THREE.PerspectiveCamera) {
-            this.camera.aspect = aspect;
+        if (this.camera instanceof THREE.OrthographicCamera) {
+            this.camera.left = -aspect;
+            this.camera.right = aspect;
             this.camera.updateProjectionMatrix();
         }
-        // this.shader.uniforms.resolution.value = new THREE.Vector2(clientWidth, clientHeight);
+        this.shader.uniforms.resolution.value = new THREE.Vector2(clientWidth, clientHeight);
     }
 
     setupResizeRenderer() {
@@ -104,29 +111,34 @@ class SplineScene {
     }
 
     setupCamera() {
-        this.camera = new THREE.PerspectiveCamera();
+        this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
 
-        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-
-        this.camera.position.set(0, 0.2, 3.0);
+        this.camera.position.set(0, 0, 0);
         this.camera.lookAt(new THREE.Vector3(0, 0, 0));
-        this.controls.update();
     }
 
     fillSplineGroup() {
-        const pList = [];
-        const cList: any = [];
-        const scale = 21.9;
-        for (let k = 0; k < 20000; k++) {
-            const col = [0.5*Math.random(), 0.5*Math.random(), 0.5+0.5*Math.random()];
-            // const col = [1, 1, 1];
-            cList.push(col);
-            const p = [Math.random()-0.5, Math.random()-0.5, Math.random()-0.5];
-            const c = 20.0;
-            // const p = [Math.cos(0.001*c*k)+0.4*Math.cos(0.1*c*k), Math.sin(0.001*c*k)+0.4*Math.sin(0.1*c*k), 0.2*Math.sin(0.31*c*k)];
-            pList.push(new THREE.Vector3(2*scale*p[0], 2*scale*p[1], 2*scale*p[2]));
+        for (const [abbr, con] of Object.entries<any>(this.astro.constellations)) {
+            // if (abbr != 'AND')
+            //     continue;
+            if (!con.boundary_1875)
+                continue;
+            const pList = [];
+            for (const [phi, theta] of con.boundary_1875) {
+                const p = new THREE.Vector3(
+                    Math.cos(theta)*Math.cos(phi),
+                    Math.cos(theta)*Math.sin(phi),
+                    Math.sin(theta)
+                );
+                pList.push(p);
+                pList.push(p);
+                pList.push(p);
+            }
+            pList.push(pList[0]);
+            pList.push(pList[0]);
+            pList.push(pList[0]);
+            this.splineGroup.addSpline(pList, (k) => [1, 1, 1], false);
         }
-        this.splineGroup.addSpline(pList, (j) => cList[j], false);
     }
 
     setupScene() {
@@ -136,8 +148,26 @@ class SplineScene {
         this.fillSplineGroup();
 
         this.splineObject = this.splineGroup.getObject();
-        this.splineObject.setRotationFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI/2);
+        // this.splineObject.setRotationFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI/2);
         this.scene.add(this.splineObject);
+
+        this.constellations = new Constellations(this.astro);
+        this.shader = new THREE.ShaderMaterial({
+            uniforms: {
+                raTexture: { value: this.constellations.raTexture },
+                deTexture: { value: this.constellations.deTexture },
+                conTexture: { value: this.constellations.conTexture },
+                size: { value: this.constellations.size },
+                resolution: { value: null },
+                time: { value: 0 }
+            },
+            vertexShader: vsCons,
+            fragmentShader: fsCons,
+            transparent: true,
+        });
+        const geometry = new THREE.PlaneGeometry(2, 2);
+        let mesh = new THREE.Mesh(geometry, this.shader);
+        this.scene.add(mesh);
     }
 
     getResolution() {
@@ -153,11 +183,13 @@ class SplineScene {
     animateStep() {
         const currentTime = (this.lastTime ?? 0.0) + (this.isStopped ? 0.0 : 1.0);
         this.lastTime = currentTime;
-
+        
         const t = this.lastTime*0.0002;
+        this.shader.uniforms.time.value = currentTime;
 
+        // this.splineObject.setRotationFromEuler(new THREE.Euler(0, 0, 0));
         // this.splineObject.setRotationFromEuler(new THREE.Euler(0, 0, 1.0+5.0*t));
-        this.splineObject.setRotationFromEuler(new THREE.Euler(0.5*Math.sin(31*t), 0.5*Math.cos(29*t), 15*t));
+        // this.splineObject.setRotationFromEuler(new THREE.Euler(0.2*Math.sin(31*t), 0.2*Math.cos(29*t), 15*t));
 
         this.renderer.render(this.scene, this.camera);
     }

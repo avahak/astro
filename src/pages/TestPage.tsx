@@ -1,3 +1,4 @@
+import pako from 'pako';
 import * as math from "mathjs";
 import React, { Suspense, useEffect, useState } from 'react';
 import { Box, Container, Typography } from '@mui/material';
@@ -11,7 +12,7 @@ import { nutationMatrix } from "../astro/nutation";
 import { rotationalElements } from "../astro/ephemeris/rotationalElements";
 import { VSOP87AEphemeris } from "../astro/ephemeris/json87aEphemeris";
 import { MPP02Ephemeris } from "../astro/ephemeris/mpp02Ephemeris";
-import pako from 'pako';
+import { Constellations } from "../constellations/precompute";
 
 const tNow = jcFromUnix(Date.now()/1000);
 
@@ -38,6 +39,7 @@ function getData(precession: boolean, nutation: boolean, timeScale: number, n: n
 const TestPage: React.FC = () => {
     const [vsop87a, setVSOP87A] = useState<VSOP87AEphemeris|null>(null);
     const [mpp02, setMPP02] = useState<MPP02Ephemeris|null>(null);
+    const [astro, setAstro] = useState(null);
 
     const loadData = async (fileName: string, process: (data: any) => void, controller: AbortController) => {
         console.log(`loadData, ${fileName}`);
@@ -77,7 +79,7 @@ const TestPage: React.FC = () => {
         loadData('vsop87a_truncated_medium.json.gz', processVSOP87A, controller);
         loadData('mpp02_llr_truncated_medium.json.gz', processMPP02, controller);
 
-        const processAstro = (data: any) => console.log(data);
+        const processAstro = (data: any) => setAstro(data);
         loadData('astro.json.gz', processAstro, controller);
 
         return () => {
@@ -85,7 +87,7 @@ const TestPage: React.FC = () => {
         };
     }, []);
     
-    if (!vsop87a || !mpp02)
+    if (!vsop87a || !mpp02 || !astro)
         return <></>;
 
     // test();
@@ -96,6 +98,17 @@ const TestPage: React.FC = () => {
         console.log(vsop87a.getPosVel('JUPITER', t));
         console.log(mpp02.getPosVel(t));
     }
+
+    console.log('astro', astro);
+
+    // let approx = rationalApproximation(0.333333, 200);
+    // console.log(approx);
+    // approx = rationalApproximation(Math.exp(1), 200);
+    // console.log(approx);
+    // approx = rationalApproximation(Math.PI, 200);
+    // console.log(approx);
+
+    // const cons = new Constellations(astro);
 
     return (
         <Container maxWidth="xl">
