@@ -30,51 +30,48 @@ function rationalApproximation(value: number, maxDenominator: number=100000) {
     return { numerator: a1, denominator: b1, error: Math.abs(value-a1/b1) };
 }
 
-function leastCommonDenominator(arr: number[]): number {
+/**
+ * Compute the LCM of all denominators
+ */
+function denominatorsLCM(arr: number[]): number {
     const denominators = arr.map((num) => {
         const fraction = rationalApproximation(num);
         return fraction.denominator;
     });
 
-    // Compute the LCM of all denominators
     return denominators.reduce((acc, val) => lcm(acc, val), 1);
 }
 
 function createIntervalLookup(arr: number[]) {
-    const arrSet = new Set<number>(arr);
+    const arrSet = new Set<number>([...arr, 0, 1]);
     const arrDistinct = [...arrSet].sort((a, b) => a - b);
 
-    const n0 = arrDistinct.length;
-    const n1 = leastCommonDenominator(arrDistinct);
+    const n0 = arrDistinct.length - 1;
+    const n1 = denominatorsLCM(arrDistinct);
+    console.log(n0, n1);
 
     const lut = new Array<number>(n1).fill(-1);
 
-    let index = -1;
+    let index = 0;
     for (let k = 0; k < n1; k++) {
-        const x = k / n1;
-        const x2 = arrDistinct[(index+n0+1) % n0];
-        if ((index < n0-1) && (x + 1.0e-12 >= x2)) {
-            index = (index+1) % n0;
-        }
-        lut[k] = (0.5 + ((index+n0) % n0)) / n0;
+        const x = (k + 0.5) / n1;
+        const x2 = arrDistinct[index + 1];
+        if (x >= x2)
+            index = index + 1;
+        lut[k] = (0.5 + index) / n0;
     }
-
     return lut;
 }
 
 class Constellations {
     static MAX_WIDTH = 1024;
-    cleanUpTasks: (() => void)[];
+    cleanUpTasks: (() => void)[] = [];
     raTexture: THREE.DataTexture;
     deTexture: THREE.DataTexture;
     conTexture: THREE.Texture;
     size: [number, number];     // size of lookup tables
 
     constructor(astro: any) {
-        this.cleanUpTasks = [];
-
-        // this.setupScene();
-
         const cons = astro['constellations'];
         const raList = [];
         const deList = [];
@@ -100,8 +97,7 @@ class Constellations {
                 paddedArray, w, h, THREE.RedFormat, THREE.FloatType
             );
             texture.generateMipmaps = false;
-            // texture.minFilter = THREE.LinearFilter;
-            // texture.magFilter = THREE.LinearFilter;
+            texture.colorSpace = THREE.NoColorSpace;
             texture.minFilter = THREE.NearestFilter;
             texture.magFilter = THREE.NearestFilter;
             texture.wrapS = THREE.ClampToEdgeWrapping;
@@ -121,6 +117,7 @@ class Constellations {
         this.conTexture.magFilter = THREE.NearestFilter;
         this.conTexture.wrapS = THREE.ClampToEdgeWrapping;
         this.conTexture.wrapT = THREE.ClampToEdgeWrapping;
+        this.conTexture.flipY = false;
     }
 
     cleanUp() {

@@ -17,7 +17,7 @@ def save_array_as_png(array, filename):
     array = array.astype(np.uint8)
     img = Image.fromarray(array, mode='L')  # 'L' for grayscale
     img.save(filename)
-    print(f'Saved image to {filename}.')
+    print(f'Saved image to {filename}, shape={array.shape}.')
 
 def create_texture(table):
     """
@@ -28,23 +28,23 @@ def create_texture(table):
     names = np.array(sorted(names))
 
     finder = ConstellationFinder(10)
-    ra_list = sorted(set(table['ra']))
-    dec_list = sorted(set([*table['dec'], 0.0, 1.0]))   # NOTE extended with 0 and 1
+    ra_list = sorted(set([*table['ra'], 0.0, 1.0]))
+    dec_list = sorted(set([*table['dec'], 0.0, 1.0]))
 
-    n_ra = len(ra_list)
+    # Both lists have 0 and 1 and values in between. 
+    # For ra_list 0 and 1 are the same - so there needs to be len(ra_list)-1 intervals (pixels)
+    # For dec_list 0 and 1 are the caps
+    n_ra = len(ra_list) - 1
     n_dec = len(dec_list) - 1
     count = 0
     values = np.zeros((n_dec, n_ra))
     for k_ra in range(n_ra):
         ra1 = ra_list[k_ra] 
-        ra2 = ra_list[(k_ra+1)%len(ra_list)]
-        if np.abs(ra1-ra2) < 0.5:
-            ra = (ra1 + ra2) / 2
-        else:
-            ra = (ra1 + ra2 - 1.0) / 2
+        ra2 = ra_list[k_ra+1]
+        ra = (ra1 + ra2) / 2
         for k_dec in range(n_dec):
             dec1 = dec_list[k_dec] 
-            dec2 = dec_list[(k_dec+1)%len(dec_list)]
+            dec2 = dec_list[k_dec+1]
             dec = (dec1 + dec2) / 2
 
             theta = (dec-0.5) * np.pi
@@ -60,11 +60,11 @@ def create_texture(table):
             count += 1
 
     # values = 256/88*values
-    save_array_as_png(values, 'cons.png')
+    save_array_as_png(values, 'd:/resources/astro/cons.png')
 
 
 
-def least_common_denominator(arr):
+def denominators_LCM(arr):
     """
     Finds smallest n such that n*x is an integer for each x in arr.
     """
@@ -74,21 +74,20 @@ def least_common_denominator(arr):
 def create_interval_lookup(arr):
     # We assume that 0<=arr[k]<=1 for all k
 
-    arr_distinct = sorted(set(arr))
-    n0 = len(arr_distinct)
-    n1 = least_common_denominator(arr_distinct)
-    print(f'{n0 = }')
-    print(f'{n1 = }')
+    arr_distinct = sorted(set([*arr, 0.0, 1.0]))
+    n0 = len(arr_distinct) - 1
+    n1 = denominators_LCM(arr_distinct)
+    print(f'{n0 = }, {n1 = }')
 
-    lut = np.zeros(n1, dtype=int)
+    lut = np.zeros(n1, dtype=float)
 
-    index = -1
+    index = 0
     for k in range(n1):
-        x = k / n1
-        x2 = arr_distinct[(index+n0+1) % n0]
-        if index < n0-1 and x + 1.0e-12 >= x2:
-            index = (index+1) % n0
-        lut[k] = (index+n0) % n0
+        x = (k + 0.5) / n1
+        x2 = arr_distinct[index + 1]
+        if x >= x2:
+            index = index + 1
+        lut[k] = (0.5 + index) #/ n0
 
     # Check the results:
     for _ in range(100000):
@@ -96,16 +95,16 @@ def create_interval_lookup(arr):
 
         index = int(x*n1)
 
-        x1 = arr_distinct[lut[index]]
-        x2 = arr_distinct[(lut[index]+1)%n0]
+        x1 = arr_distinct[int(np.floor(lut[index]))]
+        x2 = arr_distinct[int(np.ceil(lut[index]))]
         # print(index, lut[index], x1, x, x2)
-        assert lut[index] >= 0 and lut[index] < n0
+        assert lut[index] > 0 and lut[index] < n0
         if x1 < x2:
-            assert x1 <= x, f'{x1=}, {x=}, {x2=}'
-            assert x <= x2, f'{x1=}, {x=}, {x2=}'
+            assert x1 <= x and x <= x2, f'{x1=}, {x=}, {x2=}'
         else:
-            # (x1,x2) wraps around
-            assert (x1 <= x) or (x <= x2), f'{x1=}, {x=}, {x2=}'
+            # no wrapping around
+            assert False
+            # assert (x1 <= x) or (x <= x2), f'{x1=}, {x=}, {x2=}'
     
     return lut
 

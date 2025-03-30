@@ -41,7 +41,6 @@ class SplineScene {
         this.setupCamera();
         this.setupScene();
         this.setupResizeRenderer();
-        this.resizeRenderer();
         this.createGUI();
 
         this.cleanUpTasks.push(() => { 
@@ -106,6 +105,7 @@ class SplineScene {
         for (const task of this.cleanUpTasks)
             task();
         this.renderer.dispose();
+        this.shader.dispose();
 
         this.gui.destroy();
     }
@@ -114,7 +114,7 @@ class SplineScene {
         this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
 
         this.camera.position.set(0, 0, 0);
-        this.camera.lookAt(new THREE.Vector3(0, 0, 0));
+        this.camera.lookAt(new THREE.Vector3(0, 0, -1));
     }
 
     fillSplineGroup() {
@@ -123,21 +123,26 @@ class SplineScene {
             //     continue;
             if (!con.boundary_1875)
                 continue;
-            const pList = [];
-            for (const [phi, theta] of con.boundary_1875) {
-                const p = new THREE.Vector3(
-                    Math.cos(theta)*Math.cos(phi),
-                    Math.cos(theta)*Math.sin(phi),
-                    Math.sin(theta)
-                );
-                pList.push(p);
-                pList.push(p);
-                pList.push(p);
+            for (const [k, q1] of con.boundary_1875.entries()) {
+                const pList = [];
+                const q2 = con.boundary_1875[(k+1) % con.boundary_1875.length];
+                for (let j = 0; j < 4; j++) {
+                    const t = j / 3;
+                    let dq = [q2[0]-q1[0], q2[1]-q1[1]];
+                    if (dq[0] > Math.PI)
+                        dq[0] -= 2.0*Math.PI;
+                    if (dq[0] < -Math.PI)
+                        dq[0] += 2.0*Math.PI;
+                    const q = [q1[0] + t*dq[0], q1[1] + t*dq[1]];
+                    const p = new THREE.Vector3(
+                        Math.cos(q[1])*Math.cos(q[0]),
+                        Math.cos(q[1])*Math.sin(q[0]),
+                        Math.sin(q[1])
+                    );
+                    pList.push(p);
+                }
+                this.splineGroup.addInterpolatingSpline(pList, (k) => [1, 1, 1]);
             }
-            pList.push(pList[0]);
-            pList.push(pList[0]);
-            pList.push(pList[0]);
-            this.splineGroup.addSpline(pList, (k) => [1, 1, 1], false);
         }
     }
 
@@ -189,7 +194,8 @@ class SplineScene {
 
         // this.splineObject.setRotationFromEuler(new THREE.Euler(0, 0, 0));
         // this.splineObject.setRotationFromEuler(new THREE.Euler(0, 0, 1.0+5.0*t));
-        // this.splineObject.setRotationFromEuler(new THREE.Euler(0.2*Math.sin(31*t), 0.2*Math.cos(29*t), 15*t));
+        // this.scene.setRotationFromEuler(new THREE.Euler(0.2*Math.sin(31*t), 0.2*Math.cos(29*t), 15*t));
+        this.camera.lookAt(new THREE.Vector3(Math.cos(31*t), Math.sin(29*t), -1.0))
 
         this.renderer.render(this.scene, this.camera);
     }

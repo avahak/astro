@@ -32,10 +32,21 @@ function precomputeMollweideTheta(size: number) {
  * Draws uniform cubic B-splines using instancing.
  */
 class UCBSplineGroup {
-    // MAX_WIDTH has to match value in vs.glsl.
-    // This is used to avoid limitations on texture dimensions.
+    /**
+     * MAX_WIDTH has to match corresponding value in shader code.
+     * This is used to avoid limitations on texture dimensions.
+     */
     static MAX_WIDTH = 1024;
     static MOLLWEIDE_THETA = precomputeMollweideTheta(1024);
+    /**
+     * Matrix to compute B-spline control points that yield given curve points at t=0,1/3,2/3,1.
+     */
+    static INTERPOLATION_MATRIX: number[][] = [
+        [12.5, -24, 16.5, -4],
+        [-2, 7.5, -6, 1.5],
+        [1.5, -6, 7.5, -2],
+        [-4, 16.5, -24, 12.5]
+    ];
 
     shader: THREE.ShaderMaterial;
     numSegments: number;
@@ -133,6 +144,23 @@ class UCBSplineGroup {
         this.ibGeometry.instanceCount = this.numIndexes * this.numSegments;
         this.controlPointTexture.needsUpdate = true;
         this.indexTexture.needsUpdate = true;
+    }
+
+    /**
+     * Adds a 4 control point spline with control points selected so that the spline
+     * satisfies C(0)=points[0], C(1/3)=points[1], C(2/3)=points[2], and C(1)=points[3].
+     */
+    addInterpolatingSpline(points: THREE.Vector3[], color: (k: number) => number[]) {
+        if (points.length !== 4)
+            throw new Error('Invalid arguments');
+        const controlPoints = [];
+        for (let k = 0; k < 4; k++) {
+            let pSum = new THREE.Vector3(0, 0, 0);
+            for (let j = 0; j < 4; j++)
+                pSum.addScaledVector(points[j], UCBSplineGroup.INTERPOLATION_MATRIX[k][j]);
+            controlPoints.push(pSum);
+        }
+        this.addSpline(controlPoints, color, false);
     }
 
     private extendControlPointArray(minLength: number) {

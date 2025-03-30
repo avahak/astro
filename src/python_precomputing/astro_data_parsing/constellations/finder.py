@@ -33,6 +33,8 @@ class ConstellationFinder:
 
         self.table = {}
         for con in astro['constellations']:
+            if 'boundary_1875' not in astro['constellations'][con]:
+                continue
             points = astro['constellations'][con]['boundary_1875']
             self.table[con] = points
         for con, points in self.table.items():

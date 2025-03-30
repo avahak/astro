@@ -95,7 +95,7 @@ void main() {
     int index = (iIndex % numSegments) + vIndex;
     float t = float(index) / float(numSegments);
     vec4 weights = splineCoeffs(t);
-    vec4 pos = modelMatrix * vec4(weights.x*cp0 + weights.y*cp1 + weights.z*cp2 + weights.w*cp3, 1.0);
+    vec4 pos = modelViewMatrix * vec4(weights.x*cp0 + weights.y*cp1 + weights.z*cp2 + weights.w*cp3, 1.0);
     color = weights.x*color0 + weights.y*color1 + weights.z*color2 + weights.w*color3;
     float r = length(pos.xyz);
 
@@ -123,8 +123,8 @@ void main() {
         float nextT = float(index+1) / float(numSegments);
         vec4 prevWeights = splineCoeffs(prevT);
         vec4 nextWeights = splineCoeffs(nextT);
-        vec4 prevPos = modelMatrix * vec4(prevWeights.x*cp0 + prevWeights.y*cp1 + prevWeights.z*cp2 + prevWeights.w*cp3, 1.0);
-        vec4 nextPos = modelMatrix * vec4(nextWeights.x*cp0 + nextWeights.y*cp1 + nextWeights.z*cp2 + nextWeights.w*cp3, 1.0);        
+        vec4 prevPos = modelViewMatrix * vec4(prevWeights.x*cp0 + prevWeights.y*cp1 + prevWeights.z*cp2 + prevWeights.w*cp3, 1.0);
+        vec4 nextPos = modelViewMatrix * vec4(nextWeights.x*cp0 + nextWeights.y*cp1 + nextWeights.z*cp2 + nextWeights.w*cp3, 1.0);        
         // Base is [prevPos,nextPos] and its subsegment pair is [prevPos,pos], [pos,nextPos].
 
         float prevAzimuth = atan(prevPos.y, prevPos.x);
@@ -154,7 +154,7 @@ void main() {
     // vPos.xyz = r * normalize(vPos.xyz);
 
 
-    vPos = vec4(0.5*mollweide(azel), -r, 1.0);
+    vPos = vec4(mollweide(azel)/1.5, -r, 1.0);
     // vPos = vec4(0.5*hammer(azel), -r, 1.0);
-    gl_Position = projectionMatrix * viewMatrix * vPos;
+    gl_Position = projectionMatrix * vPos;
 }
