@@ -21,6 +21,7 @@ uniform int numSegments;                // Must be even to allow segment pairing
 uniform sampler2D controlPointTexture;  // B-spline control points and colors
 uniform isampler2D indexTexture;
 uniform sampler2D mollweideTexture;     // Precomputed theta values for Mollweide projection
+uniform float scale;
 
 out vec3 color;
 out vec4 vPos;
@@ -154,7 +155,7 @@ void main() {
     // vPos.xyz = r * normalize(vPos.xyz);
 
 
-    vPos = vec4(mollweide(azel)/1.5, -r, 1.0);
+    vPos = vec4(mollweide(azel)/scale, -r, 1.0);
     // vPos = vec4(0.5*hammer(azel), -r, 1.0);
     gl_Position = projectionMatrix * vPos;
 }

@@ -7,6 +7,7 @@ uniform vec2 size;
 uniform vec2 resolution;
 uniform float time;
 uniform mat4 mvMatrix;
+uniform float scale;
 
 varying vec2 vPosition;
 
@@ -46,22 +47,23 @@ vec3 cartesianFromSpherical(vec3 p) {
 }
 
 void main() {
+    float border = 0.01;
+
     float aspect = resolution.x / resolution.y;
-    float scale = 3.0;
-    vec2 pn = 1.5*vec2(aspect*vPosition.x/2.0, vPosition.y);
+    vec2 pn = scale*vec2(aspect*vPosition.x/2.0, vPosition.y);
     vec2 proj = normalize(pn) * sqrt(2.0);
-    float r = length((pn - proj)*vec2(2.0, 1.0));
-    if (length(pn) > sqrt(2.0) && r > 0.02) {
+    float r = length((pn - proj)*vec2(2.0, 1.0)) / border;
+    if (length(pn) > sqrt(2.0) && r > 1.0) {
         discard;
         return;
-    } else if (length(pn) > sqrt(2.0)) {
-        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0-abs(2.0*r/0.02 - 1.0));  // antialiasing
-        return;
+    } 
+    vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+    if (length(pn) < sqrt(2.0)) {
+        vec2 p = scale*vec2(aspect*vPosition.x, vPosition.y);
+        vec2 q = mollweideInverse(p);
+        q = sphericalFromCartesian((mvMatrix * vec4(cartesianFromSpherical(vec3(q.xy, 1.0)), 1.0)).xyz).xy;
+        float col = lookup(q);
+        color = vec4(col, 0.0, 0.0, 1.0);
     }
-
-    vec2 p = 1.5*vec2(aspect*vPosition.x, vPosition.y);
-    vec2 q = mollweideInverse(p);
-    q = sphericalFromCartesian((mvMatrix * vec4(cartesianFromSpherical(vec3(q.xy, 1.0)), 1.0)).xyz).xy;
-    float col = lookup(q);
-    gl_FragColor = vec4(col, 0.0, 0.0, 1.0);
+    gl_FragColor = mix(color, vec4(1.0, 1.0, 1.0, 1.0), clamp(1.0-r*r, 0.0, 1.0));
 }

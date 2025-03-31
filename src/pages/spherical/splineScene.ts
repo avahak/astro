@@ -94,9 +94,22 @@ class SplineScene {
         const myObject = {
             animateButton,
             toggleStop,
+            scale: 1.5,
+            showSplines: true,
         };
         this.gui.add(myObject, 'animateButton').name('Animate step');
         this.gui.add(myObject, 'toggleStop').name('Toggle stop/play');
+        this.gui.add(myObject, 'scale', 0.2, 3.0)
+            .name('Scale')
+            .onChange((value: number) => {
+                this.shader.uniforms.scale.value = value;
+                this.splineGroup.shader.uniforms.scale.value = value;
+            });
+        this.gui.add(myObject, 'showSplines')
+            .name('Scale')
+            .onChange((value: boolean) => {
+                this.splineObject.visible = value;
+            });
         this.gui.close();
     }
 
@@ -166,6 +179,7 @@ class SplineScene {
                 resolution: { value: null },
                 time: { value: 0 },
                 mvMatrix: { value: null },
+                scale: { value: 1.5 },
             },
             vertexShader: vsCons,
             fragmentShader: fsCons,
@@ -199,7 +213,6 @@ class SplineScene {
         this.camera.lookAt(new THREE.Vector3(Math.cos(31*t), Math.sin(29*t), -1.0));
 
         this.shader.uniforms.mvMatrix.value = this.camera.matrixWorld;
-        console.log(this.shader.uniforms.mvMatrix.value);
 
         this.renderer.render(this.scene, this.camera);
     }

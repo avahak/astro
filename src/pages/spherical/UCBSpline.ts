@@ -75,6 +75,7 @@ class UCBSplineGroup {
                 mollweideTexture: { value: null },
                 controlPointTexture: { value: null },
                 indexTexture: { value: null },
+                scale: { value: 1.5 },
             },
             vertexShader: vsSpline,
             fragmentShader: fsSpline,
