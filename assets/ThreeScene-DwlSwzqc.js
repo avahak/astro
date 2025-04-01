@@ -1,0 +1,254 @@
+var K=Object.defineProperty;var X=(n,e,t)=>e in n?K(n,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):n[e]=t;var s=(n,e,t)=>X(n,typeof e!="symbol"?e+"":e,t);import{S as E,T as $,a as Q,C,b as z,P as G,M as b,c as D,l as Y,n as Z,e as q,d as i,m as d,f as ee,p as te,r as f,x as P,z as L,g as ne,s as re,t as ie,W as se,h as ae,i as oe,F as ce,R as he,N as k,j as le,O as pe,V as ve,k as ue,o as A,I as de,q as me}from"./index-C4HYxrDI.js";const I=`precision highp float;\r
+\r
+varying vec4 vPosition;\r
+varying vec2 vUv;\r
+\r
+void main() {\r
+    vPosition = vec4(position.xy, 0.0, 1.0);\r
+    vUv = uv;\r
+    gl_Position = vPosition;\r
+    // gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);\r
+}`,fe=`// We use the standard xyz coordinate system here, not the GLSL coordinate system.\r
+// IMPORTANT! Do not use mipmapping here since mipmap level is not be calculated correctly.\r
+\r
+precision highp float;\r
+\r
+uniform sampler2D terrain;\r
+uniform sampler2D depthTexture;\r
+uniform vec2 resolution;\r
+uniform vec3 pSun;\r
+uniform vec3 pMoon;\r
+uniform vec3 pJupiter;\r
+uniform vec2 vDir;\r
+uniform mat3 vMat;\r
+uniform float focalLength;\r
+uniform float terrainLight;\r
+\r
+uniform vec3 radii;         // (earth radius, atmosphere radius, observer radius)\r
+uniform vec3 scatterCoeff;  // scattering coefficients for r,g,b\r
+\r
+varying vec4 vPosition;\r
+varying vec2 vUv;\r
+\r
+#define PI 3.14159265359\r
+#define EP 1.0E-7\r
+\r
+vec3 cartesian_to_spherical(vec3 u) {\r
+    float r = length(u);\r
+    float phi = atan(u.y, u.x);\r
+    float theta = acos(u.z/r);\r
+    return vec3(phi, theta, r);\r
+}\r
+\r
+vec3 spherical_to_cartesian(vec3 v) {\r
+    float x = v.z*sin(v.y)*cos(v.x);\r
+    float y = v.z*sin(v.y)*sin(v.x);\r
+    float z = v.z*cos(v.y);\r
+    return vec3(x, y, z);\r
+}\r
+\r
+vec2 clamp_spherical(vec3 u) {\r
+    return vec2(mod(u.x, 2.0*PI)/(2.0*PI), 1.0-u.y/PI);\r
+}\r
+\r
+vec4 axes(vec3 p) {\r
+    if (length(p-vec3(1.0, 0.0, 0.0)) < 0.1)\r
+        return vec4(1.0, 0.0, 0.0, 1.0);\r
+    if (length(p-vec3(-1.0, 0.0, 0.0)) < 0.05)\r
+        return vec4(0.25, 0.0, 0.0, 1.0);\r
+    if (length(p-vec3(0.0, 1.0, 0.0)) < 0.1)\r
+        return vec4(0.0, 1.0, 0.0, 1.0);\r
+    if (length(p-vec3(0.0, -1.0, 0.0)) < 0.05)\r
+        return vec4(0.0, 0.25, 0.0, 1.0);\r
+    if (length(p-vec3(0.0, 0.0, 1.0)) < 0.1)\r
+        return vec4(0.0, 0.0, 1.0, 1.0);\r
+    if (length(p-vec3(0.0, 0.0, -1.0)) < 0.05)\r
+        return vec4(0.0, 0.0, 0.25, 1.0);\r
+    return vec4(0.0);\r
+}\r
+\r
+// Given sphere S(s0,r) and ray t->p0+t*v (t>=0), returns (segment start t, length of seg)\r
+// for segment of ray inside the sphere or (-1,0) if no intersection.\r
+vec2 raySphereIntersection(vec3 s0, float r, vec3 p0, vec3 v) {\r
+    // |p0+t*v-s0|=r\r
+    // |p0-s0|^2 + 2*t*<p0-s0,v> + t*t*<v,v> = r*r\r
+    float a = dot(v, v);        // =1\r
+    float b = 2.0*dot(p0-s0, v);\r
+    float c = dot(p0-s0, p0-s0) - r*r;\r
+    // a*t^2 + b*t + c = 0\r
+    // t = (-b +- sqrt(b*b-4*a*c))/(2*a)\r
+    float d = b*b - 4.0*a*c;\r
+    if (d <= 0.0)\r
+        return vec2(-1.0, 0.0);\r
+    float t1 = (-b - sqrt(d))/(2.0*a);\r
+    float t2 = (-b + sqrt(d))/(2.0*a);\r
+    if (t2 <= 0.0)\r
+        return vec2(-1.0, 0.0);\r
+    if (t1 <= 0.0)\r
+        return vec2(0.0, t2);\r
+    return vec2(t1, t2-t1);\r
+}\r
+\r
+vec2 density(vec3 p) {\r
+    vec2 densityFalloff = vec2(2.0, 8.0);\r
+    float h01 = clamp((length(p) - radii.x)/(radii.y-radii.x), 0.0, 1.0);\r
+    return exp(-densityFalloff*h01)*(1.0-h01);\r
+}\r
+\r
+vec2 opticalDepth(vec3 rayOrigin, vec3 rayDir, float rayLength) {\r
+    int numSamples = 10;\r
+    float stepSize = rayLength/(float(numSamples)-1.0);\r
+    vec2 depth = vec2(0.0);\r
+    for (int k = 0; k < numSamples; k++) {\r
+        vec3 samplePoint = rayOrigin + float(k)*rayDir*stepSize;\r
+        depth += density(samplePoint)*stepSize;\r
+    }\r
+    return depth;\r
+}\r
+\r
+vec2 opticalDepth2(vec3 rayOrigin, vec3 rayDir) {\r
+    int numSamples = 200;\r
+    float stepSize = 2.0*radii.y/(float(numSamples)-1.0);\r
+    vec2 depth = vec2(0.0);\r
+    for (int k = 0; k < numSamples; k++) {\r
+        vec3 samplePoint = rayOrigin + float(k)*rayDir*stepSize;\r
+        depth += density(samplePoint)*stepSize;\r
+    }\r
+    return depth;\r
+}\r
+\r
+vec2 opticalDepthTextureLookup(float h01, float dp01) {\r
+    vec3 rayOrigin = vec3(0.0, radii.z+h01*(radii.y-radii.x), 0.0);\r
+    float dp = 1.0 - 2.0*dp01;\r
+    vec3 rayDir = vec3(sqrt(1.0-dp*dp), dp, 0.0);\r
+    return opticalDepth2(rayOrigin, rayDir);\r
+}\r
+\r
+vec2 opticalDepthFromTexture(vec3 rayOrigin, vec3 rayDir) {\r
+    float h01 = (length(rayOrigin)-radii.x)/(radii.y-radii.x);\r
+    float dp01 = 0.5 - dot(rayOrigin, rayDir)/length(rayOrigin)*0.5;\r
+    // return opticalDepthTextureLookup(h01, dp01);\r
+\r
+    vec2 tex = texture(depthTexture, vec2(h01, dp01)).rg;\r
+    // return 2.0*tex;\r
+    return exp(vec2(2.0-1.0/tex.x, 2.0-1.0/tex.y));\r
+}\r
+\r
+vec3 atmosphere(vec3 v) {\r
+    vec3 observerPos = vec3(0.0, 0.0, radii.z);\r
+    vec2 tInner = raySphereIntersection(vec3(0.0), radii.x, observerPos, v);\r
+    vec2 tOuter = raySphereIntersection(vec3(0.0), radii.y, observerPos, v);\r
+    vec2 t = vec2(tOuter.x, tInner.x >= 0.0 ? min(tOuter.y, tInner.x-tOuter.x) : tOuter.y);\r
+    // return vec3(0.0+0.0*atan(100.0*t.x)/PI, t.y, 0.0);\r
+    // if ()\r
+    //     return vec3(1.0, 0.0, 0.0);\r
+\r
+    vec3 dirToSun = normalize(pSun);\r
+    float c_theta = dot(dirToSun, v);\r
+    float c_theta2 = c_theta*c_theta;\r
+    float K_Rayleigh = 3.0/4.0*(1.0 + c_theta2);\r
+    float g = 0.8;  // asymmetry parameter, in (-1,1), positive for forward scattering\r
+    float K_Mie = 2.0*(1.0-g*g)/(4.0*PI)/pow(1.0+g*g-2.0*g*c_theta, 3.0/2.0);\r
+\r
+    float scatterStr = 500.0;\r
+\r
+    // Segment inside atmosphere is observerPos+t*v where t in [t.x, t.x+t.y]\r
+    int stepNum = 20;\r
+    float stepSize = t.y/float(stepNum);\r
+    vec3 pos0 = observerPos + t.x*v;// + 0.5*stepSize*v; \r
+    vec3 pos = pos0; \r
+    vec3 lightRayleigh = vec3(0.0);\r
+    float lightMie = 0.0;\r
+    // vec3 light2 = vec3(0.0);\r
+    vec2 viewRayOpticalDepth = vec2(0.0);\r
+    for (int k = 0; k < stepNum; k++) {\r
+        float sunRayLength = raySphereIntersection(vec3(0.0), radii.y, pos, dirToSun).y;\r
+        vec2 sunRayOpticalDepth = opticalDepth(pos, dirToSun, sunRayLength);\r
+        // vec2 viewRayOpticalDepth = opticalDepth(pos, -v, float(k)*stepSize);\r
+        // vec2 viewRayOpticalDepth = opticalDepth(pos0, v, float(k)*stepSize);\r
+\r
+        // vec2 sunRayOpticalDepth = opticalDepthFromTexture(pos, dirToSun);\r
+        // vec2 viewRayOpticalDepth = opticalDepthFromTexture(pos0, v) - opticalDepthFromTexture(pos, v);\r
+\r
+        vec3 lightInRayleigh = exp(-(sunRayOpticalDepth.x + viewRayOpticalDepth.x)*scatterCoeff*scatterStr);\r
+        float lightInMie = exp(-(sunRayOpticalDepth.x + viewRayOpticalDepth.x)*scatterStr);\r
+\r
+        vec2 d = density(pos) * stepSize;\r
+        viewRayOpticalDepth += d;\r
+        lightRayleigh += K_Rayleigh * d.x * lightInRayleigh * scatterCoeff * scatterStr;\r
+        lightMie += K_Mie * d.y * lightInMie * scatterStr;\r
+        pos += v * stepSize;\r
+    }\r
+\r
+    return lightRayleigh + vec3(lightMie);\r
+}\r
+\r
+void main() {\r
+\r
+    float aspect = resolution.x / resolution.y;\r
+    vec2 p0 = vPosition.xy * vec2(aspect, 1.0);\r
+    float r = length(p0);\r
+    float theta = 2.0*atan(r/(2.0*focalLength));\r
+    // vec3 p = -vMat * vec3(sin(theta)*p0/r, cos(theta));\r
+    vec3 p = vMat * vec3(cos(theta), -sin(theta)*p0.x/r, sin(theta)*p0.y/r);\r
+\r
+    vec2 q = clamp_spherical(cartesian_to_spherical(p));\r
+\r
+    vec4 axesColor = axes(p);\r
+    if (axesColor.a > 0.5) {\r
+        gl_FragColor = axesColor;\r
+        return;\r
+    }\r
+\r
+    if (length(p-normalize(pSun)) < 0.1) {\r
+        gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);\r
+        return;\r
+    }\r
+\r
+    if (length(p-normalize(pMoon)) < 0.1) {\r
+        gl_FragColor = vec4(0.6, 0.6, 0.6, 1.0);\r
+        return;\r
+    }\r
+\r
+    if (length(p-normalize(pJupiter)) < 0.1) {\r
+        gl_FragColor = vec4(0.2, 0.2, 1.0, 1.0);\r
+        return;\r
+    }\r
+\r
+    vec4 color = texture(terrain, q);\r
+    // color.a = 0.0;\r
+    color = vec4(terrainLight*color.rgb, color.a);\r
+    vec3 color2 = atmosphere(normalize(p));\r
+    // gl_FragColor = vec4(0.5+vPosition.x*0.5, 0.5-vPosition.y*0.5, 0.0, 1.0);\r
+    // gl_FragColor = vec4(opticalDepthTextureLookup(0.5+vPosition.x*0.5, 0.5-vPosition.y*0.5), 0.0, 1.0);\r
+    // vec2 tex = texture(depthTexture, vec2(0.5+vPosition.x*0.5, 0.5-vPosition.y*0.5)).rg;\r
+    // vec2 depth = exp(vec2(2.0-1.0/tex.x, 2.0-1.0/tex.y));\r
+    // gl_FragColor = vec4(depth, 0.0, 1.0);\r
+    gl_FragColor = vec4(mix(color.rgb, color2, 1.0-color.a), 1.0);\r
+}`;function ge(n){return D(2*n[2]/Y(n),.1,1)}class Se{constructor(e){s(this,"scene");s(this,"mainScene");s(this,"cleanUpTasks");s(this,"shader");this.mainScene=e,this.cleanUpTasks=[],this.scene=this.setupScene()}onResize(){this.shader.uniforms.resolution.value=this.mainScene.getResolution()}setupScene(){const e=new E,t=new $,r=t.load("/astro/klippad_sunrise_2_4k.webp");r.colorSpace=Q,r.generateMipmaps=!1;const a=t.load("/astro/depth.png");a.wrapS=C,a.wrapT=C,a.generateMipmaps=!1,this.shader=new z({uniforms:{terrain:{value:r},depthTexture:{value:a},pSun:{value:null},pMoon:{value:null},pJupiter:{value:null},resolution:{value:null},vDir:{value:null},vMat:{value:null},focalLength:{value:null},terrainLight:{value:null},radii:{value:null},scatterCoeff:{value:[Math.pow(500/700,4),Math.pow(500/530,4),Math.pow(500/440,4)]}},vertexShader:I,fragmentShader:fe,transparent:!0});const h=new G(2,2);let p=new b(h,this.shader);return e.add(p),e}render(e,t){this.shader.uniforms.pSun.value=this.mainScene.params.pSun,this.shader.uniforms.pMoon.value=this.mainScene.params.pMoon,this.shader.uniforms.pJupiter.value=this.mainScene.params.pJupiter,this.shader.uniforms.vDir.value=[this.mainScene.params.viewDirection.phi,this.mainScene.params.viewDirection.theta],this.shader.uniforms.vMat.value=this.mainScene.params.viewMatrix,this.shader.uniforms.focalLength.value=this.mainScene.params.focalLength,this.shader.uniforms.terrainLight.value=ge(this.mainScene.params.pSun),this.shader.uniforms.radii.value=[1,1.002,1.0001],e.setRenderTarget(this.mainScene.hdrFbo),e.render(this.scene,t),e.setRenderTarget(null)}}const ye=`// Rendering HDR scene to the screen.\r
+\r
+precision highp float;\r
+\r
+uniform sampler2D hdrTexture;\r
+// uniform vec2 resolution;\r
+\r
+varying vec4 vPosition;\r
+varying vec2 vUv;\r
+\r
+void main() {\r
+    float exposure = 1.0;\r
+    vec2 p = vPosition.xy*0.5 + vec2(0.5, 0.5);\r
+    vec3 hdrColor = texture(hdrTexture, p).rgb;\r
+    vec3 color = vec3(1.0) - exp(-hdrColor*exposure);\r
+    // vec3 color = hdrColor / (vec3(1.0) + hdrColor);\r
+    gl_FragColor = vec4(color, 1.0);\r
+}`;class xe{constructor(e){s(this,"mainScene");s(this,"scene");s(this,"cleanUpTasks");s(this,"shader");this.mainScene=e,this.cleanUpTasks=[],this.scene=this.setupScene()}onResize(){}setupScene(){const e=new E;this.shader=new z({uniforms:{hdrTexture:{value:null}},vertexShader:I,fragmentShader:ye,transparent:!0});const t=new G(2,2),r=new b(t,this.shader);return e.add(r),e}render(e,t){this.shader.uniforms.hdrTexture.value=this.mainScene.hdrFbo.texture,e.setRenderTarget(null),e.render(this.scene,t)}}const Me=`precision highp float;\r
+\r
+varying vec4 vPosition;\r
+varying vec2 vUv;\r
+\r
+#define PI 3.14159265359\r
+\r
+void main() {\r
+    gl_FragColor = vec4(0.2, 0.3, 0.4, 1.0);\r
+}`;class De{constructor(e){s(this,"mainScene");s(this,"scene");s(this,"cleanUpTasks");s(this,"shader");this.mainScene=e,this.cleanUpTasks=[],this.scene=this.setupScene()}onResize(){}setupScene(){const e=new E;this.shader=new z({uniforms:{hdrTexture:{value:null}},vertexShader:I,fragmentShader:Me,transparent:!0});const t=new G(2,2),r=new b(t,this.shader);return e.add(r),e}render(e,t){e.setRenderTarget(this.mainScene.hdrFbo),e.render(this.scene,t),e.setRenderTarget(null)}}function Te(n){const e=(.779057273264+1.0027378119113546*n*36525)%1;return i.TAU*e}function we(n){const t=q([.014506,4612.156534,1.3915817,-44e-8,-29956e-9,-368e-10],n);return(Te(n)+i.TAU*t/15/86400)%i.TAU}function Re(n){const[e,t,r]=Z(n),h=q([450160.398036,-69628905431e-4,7.4722,.007702,-5939e-8],n),p=r*Math.cos(e)+.00264096*Math.sin(h)+6352e-8*Math.sin(2*h);return we(n)+i.TAU*p/86400}function Pe(n){const e=d(ee(n),te(n),i.FRAME_BIAS_MATRIX),t=f(2,-Re(n));return d(t,e)}function Ee(n,e){const t=f(2,-Math.PI/2),r=f(1,-Math.PI/2+n.lat),a=f(2,-n.lon);return d(t,r,a)}function ze(n,e){const t=Pe(e),r=Ee(n);return d(r,t)}function Ge(n,e){n=(n%(2*Math.PI)+Math.PI)%(2*Math.PI)-Math.PI;let t=n+e*Math.sin(n),r=1;for(;Math.abs(r)>1e-12;)r=(n-t+e*Math.sin(t))/(1-e*Math.cos(t)),t+=r;return t}function U(n,e,t,r,a,h){const p=Ge(h,a),u=r*(Math.cos(p)-a),g=r*Math.sqrt(1-a*a)*Math.sin(p);return L(P(L([u,g,0],t),e),n)}function T(n,e){if([1,2,3,4,8,9].includes(n)){let t=new Array(6).fill(0),r=new Array(6).fill(0);if(n===1)t=[.38709927,.20563593,7.00497902,252.2503235,77.45779628,48.33076593],r=[37e-8,1906e-8,-.00594749,149472.67411175,.16047689,-.12534081];else if(n===2)t=[.72333566,.00677672,3.39467605,181.9790995,131.60246718,76.67984255],r=[39e-7,-4107e-8,-7889e-7,58517.81538729,.00268329,-.27769418];else if(n===3)t=[1.00000261,.01671123,-1531e-8,100.46457166,102.93768193,0],r=[562e-8,-4392e-8,-.01294668,35999.37244981,.32327364,0];else if(n===4)t=[1.52371034,.0933941,1.84969142,-4.55343205,-23.94362959,49.55953891],r=[1847e-8,7882e-8,-.00813131,19140.30268499,.44441088,-.29257343];else if(n===8)t=[30.06992276,.00859048,1.77004347,-55.12002969,44.96476227,131.78422574],r=[26291e-8,5105e-8,35372e-8,218.45945325,-.32241464,-.00508664];else if(n===9)t=[39.48211675,.2488273,17.14001206,238.92903833,224.06891629,110.30393684],r=[-31596e-8,517e-7,4818e-8,145.20780515,-.04062942,-.01183482];else return null;const a=t.map((p,u)=>p+e*r[u]),h=U(a[5]*i.DEG,a[2]*i.DEG,(a[4]-a[5])*i.DEG,a[0],a[1],(a[3]-a[4])*i.DEG);return P(h,23.43928*i.DEG)}else{const t=e*36525+1.5,r=(23.4393-3563e-10*t)*i.DEG,a=-382394e-10*t*i.DEG;let h=new Array(6).fill(0),p=new Array(6).fill(0);if(n===301)h=[125.1228,5.1454,318.0634,60.2666*i.RADIUS_EARTH,.0549,115.3654],p=[-.0529538083,0,.1643573223,0,0,13.0649929509];else if(n===5)h=[100.4542,1.303,273.8777,5.20256,.048498,19.895],p=[276854e-10,-1557e-10,164505e-10,0,4469e-12,.0830853001];else if(n===6)h=[113.6634,2.4886,339.3939,9.55475,.055546,316.967],p=[23898e-9,-1081e-10,297661e-10,0,-9499e-12,.0334442282];else if(n===7)h=[74.0005,.7733,96.6612,19.18171,.047318,142.5905],p=[13978e-9,19e-9,30565e-9,-155e-10,745e-11,.011725806];else return null;const u=h.map((o,c)=>o+t*p[c]),[g,V,_,H,J,v]=[u[0]*i.DEG,u[1]*i.DEG,u[2]*i.DEG,u[3],u[4],u[5]*i.DEG],[S,y,w]=U(g,V,_,H,J,v);let O=Math.sqrt(S*S+y*y+w*w),x=Math.atan2(y,S),R=Math.atan2(w,Math.sqrt(S*S+y*y));if(n===301){const o=(356.047+t*.9856002585)*i.DEG,c=(282.9404+t*470935e-10)*i.DEG,M=o+c,F=v+_+g,l=F-M,m=F-g,W=(-1.274*Math.sin(v-2*l)+.658*Math.sin(2*l)-.186*Math.sin(o)-.059*Math.sin(2*v-2*l)-.057*Math.sin(v-2*l+o)+.053*Math.sin(v+2*l)+.046*Math.sin(2*l-o)+.041*Math.sin(v-o)-.035*Math.sin(l)-.031*Math.sin(v+o)-.015*Math.sin(2*m-2*l)+.011*Math.sin(v-4*l))*i.DEG,j=(-.173*Math.sin(m-2*l)-.055*Math.sin(v-m-2*l)-.046*Math.sin(v+m-2*l)+.033*Math.sin(v-m+l)-.017*Math.sin(2*l-m))*i.DEG,B=(-.58*Math.cos(v-2*l)-.46*Math.cos(2*l))*i.RADIUS_EARTH;x+=W,R+=j,O+=B}if([5,6,7].includes(n)){const o=(19.895+t*.0830853001)*i.DEG,c=(316.967+t*.0334442282)*i.DEG;if(n===5)x+=(-.332*Math.sin(2*o-5*c-67.6*i.DEG)-.056*Math.sin(2*o-2*c+21*i.DEG)+.042*Math.sin(3*o-5*c+21*i.DEG)-.036*Math.sin(o-2*c)+.022*Math.cos(o-c)+.023*Math.sin(2*o-3*c+52*i.DEG)-.016*Math.sin(o-5*c-69*i.DEG))*i.DEG;else if(n===6)x+=(.812*Math.sin(2*o-5*c-67.6*i.DEG)-.229*Math.cos(2*o-4*c-2*i.DEG)+.119*Math.sin(o-2*c-3*i.DEG)+.046*Math.sin(2*o-6*c-69*i.DEG)+.014*Math.sin(o-3*c+32*i.DEG))*i.DEG,R+=(-.02*Math.cos(2*o-4*c-2*i.DEG)+.018*Math.sin(2*o-6*c-49*i.DEG))*i.DEG;else if(n===7){const M=(142.5905+t*.011725806)*i.DEG;x+=(.04*Math.sin(c-2*M+6*i.DEG)+.035*Math.sin(c-3*M+33*i.DEG)-.015*Math.sin(o-M+20*i.DEG))*i.DEG}}const N=ne(O,R,x+a);return P(N,r)}}function be(n){const e=T(301,n),t=T(3,n),r=-1/(i.MASS_RATIO_EARTH_MOON+1);return[t[0]+r*e[0],t[1]+r*e[1],t[2]+r*e[2]]}class Ie{constructor(){s(this,"viewDirection");s(this,"viewMatrix");s(this,"focalLength");s(this,"t");s(this,"location");s(this,"horizonMatrix");s(this,"pSun");s(this,"pMoon");s(this,"pJupiter");this.setView({viewDirection:{phi:0,theta:Math.PI/2},focalLength:1}),this.setTimeAndOrLocation({t:.2,location:i.EARTH_LOC_DICT.Singapore})}setTimeAndOrLocation(e){e.t&&(this.t=e.t),e.location&&(this.location=e.location),this.horizonMatrix=ze(this.location,this.t);const t=be(this.t),r=d(this.horizonMatrix,t).valueOf();this.pSun=d(r,-1).valueOf(),this.pMoon=d(this.horizonMatrix,T(301,this.t)).valueOf(),this.pJupiter=d(this.horizonMatrix,re(T(5,this.t),t)).valueOf()}setView(e){e.focalLength&&(this.focalLength=e.focalLength),e.viewDirection&&(this.viewDirection=e.viewDirection,this.viewMatrix=ie(d(f(2,this.viewDirection.phi),f(1,this.viewDirection.theta-Math.PI/2))).valueOf().flat())}}class _e{constructor(e){s(this,"container");s(this,"camera");s(this,"params");s(this,"renderer");s(this,"cleanUpTasks");s(this,"animationRequestID",null);s(this,"lastTime",null);s(this,"gui");s(this,"isStopped",!1);s(this,"averageRenderTime",0);s(this,"hdrFbo");s(this,"disposeFbos",()=>{});s(this,"spaceScene");s(this,"earthScene");s(this,"postScene");this.container=e,this.cleanUpTasks=[],this.renderer=new se({antialias:!0,alpha:!0}),this.renderer.setClearColor(0,0),e.appendChild(this.renderer.domElement),this.renderer.getContext().getExtension("EXT_float_blend"),this.params=new Ie,this.spaceScene=new De(this),this.earthScene=new Se(this),this.postScene=new xe(this),this.camera=this.setupCamera(),this.setupResizeRenderer(),this.resizeRenderer(),this.createGUI(),this.cleanUpTasks.push(()=>{this.animationRequestID&&cancelAnimationFrame(this.animationRequestID),this.disposeFbos()}),this.animate=this.animate.bind(this),this.animate()}resizeRenderer(){this.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));const{clientWidth:e,clientHeight:t}=this.container;console.log(`Resize! (${e}, ${t})`),this.renderer.setSize(e,t),this.camera instanceof ae&&(this.camera.aspect=e/t,this.camera.updateProjectionMatrix()),this.setupFbos(),this.spaceScene.onResize(),this.earthScene.onResize(),this.postScene.onResize()}setupResizeRenderer(){const e=new ResizeObserver(()=>{this.resizeRenderer()});e.observe(this.container),this.cleanUpTasks.push(()=>e.unobserve(this.container)),this.resizeRenderer()}setupFbos(){this.disposeFbos(),this.hdrFbo=this.createRenderTarget(),this.disposeFbos=()=>this.hdrFbo.dispose()}createRenderTarget(){const{clientWidth:e,clientHeight:t}=this.container;return new oe(e,t,{minFilter:k,magFilter:k,format:he,type:ce})}createGUI(){this.gui=new le;const a={animateButton:()=>this.animateStep(!1),toggleStop:()=>{this.isStopped=!this.isStopped},info:()=>{console.log(this.params),alert(JSON.stringify(this.params))}};this.gui.add(a,"animateButton").name("Animate step"),this.gui.add(a,"toggleStop").name("Toggle stop/play"),this.gui.add(a,"info").name("Info"),this.gui.close()}cleanUp(){this.container.removeChild(this.renderer.domElement);for(const e of this.cleanUpTasks)e();this.renderer.dispose(),this.gui.destroy()}setupCamera(){const e=new pe(-1,1,-1,1,.1,1e3);return e.position.set(0,0,1),e.lookAt(new ve(0,0,0)),e}getResolution(){const{clientWidth:e,clientHeight:t}=this.container;return new ue(e,t)}animate(){this.animationRequestID=requestAnimationFrame(this.animate),this.animateStep(this.isStopped)}animateStep(e){const t=(this.lastTime??0)+(e?0:1);this.lastTime=t;const r=.192+this.lastTime/36525;this.params.setTimeAndOrLocation({t:r}),this.spaceScene.render(this.renderer,this.camera),this.earthScene.render(this.renderer,this.camera),this.postScene.render(this.renderer,this.camera)}}const Ce=()=>{const n=A.useRef(null);return A.useEffect(()=>{console.log("useEffect: ",n.current);const e=new _e(n.current),t=new de(n.current,{mouse:{drag:r=>{const a=(e.params.viewDirection.phi+.01*r.dx)%i.TAU,h=D(e.params.viewDirection.theta-.01*r.dy,0,Math.PI);e.params.setView({viewDirection:{phi:a,theta:h}})},down:r=>{}},wheel:{zoom:r=>e.params.setView({focalLength:D(e.params.focalLength/(1+.001*r.delta),.1,10)}),pan:r=>{}},touch:{start:r=>{},dragSingle:r=>{const a=(e.params.viewDirection.phi+.01*r.dx)%i.TAU,h=D(e.params.viewDirection.theta-.01*r.dy,0,Math.PI);e.params.setView({viewDirection:{phi:a,theta:h}})},dragPair:r=>{e.params.setView({focalLength:D(e.params.focalLength/r.scale,.1,10)})}},keyboard:{keydown:r=>{r.key.toUpperCase()==="T"&&console.log("TEST")}}});return()=>{e.cleanUp(),t.cleanup()}},[]),me.jsx("div",{ref:n,style:{width:"100%",height:"100%"}})};export{Ce as default};
