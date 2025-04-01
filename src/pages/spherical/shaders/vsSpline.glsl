@@ -60,10 +60,10 @@ float antimeridianIntersectionElevation(vec3 p, vec3 q) {
 
 // Computes Mollweide projection from (azimuth,elevation angle)
 vec2 mollweide(vec2 azel) {
-    // Use precomputed texture to solve 2*theta+sin(2*theta)=PI*sin(elevation)
-    float theta = sign(azel.y) * texture(mollweideTexture, vec2(abs(azel.y)/(PI/2.0), 0.0)).r;
-    float x = 2.0*SQRT2/PI * azel.x * cos(theta);
-    float y = SQRT2 * sin(theta);
+    // Use precomputed texture to solve 2*tau+sin(2*tau)=PI*sin(elevation)
+    float tau = sign(azel.y) * texture(mollweideTexture, vec2(abs(azel.y)/(PI/2.0), 0.0)).r;
+    float x = 2.0*SQRT2/PI * azel.x * cos(tau);
+    float y = SQRT2 * sin(tau);
     return vec2(x, y);
 }
 

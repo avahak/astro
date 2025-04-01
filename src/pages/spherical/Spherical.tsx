@@ -4,6 +4,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Link as MUILink } from '@mui/material';
 import { SplineScene } from './splineScene';
 import pako from 'pako';
+import { InputListener } from '../../inputListener';
 
 const SplineSceneComponent: React.FC = () => { 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -54,10 +55,28 @@ const SplineSceneComponent: React.FC = () => {
         console.log("useEffect2: ", astro);
         if (!astro) 
             return;
-
         const scene = new SplineScene(containerRef.current!, astro);
+
+        const handler = new InputListener(containerRef.current!, {
+            mouse: {
+                drag: (args) => scene.input(args.x, args.y, args.dx, args.dy, 1),
+            },
+            wheel: {
+                zoom: (args) => scene.input(args.x, args.y, 0, 0, 1.0+0.001*args.delta),
+                pan: (args) => scene.input(args.x, args.y, args.dx, args.dy, 1),
+            },
+            touch: {
+                dragSingle: (args) => scene.input(args.x, args.y, args.dx, args.dy, 1),
+                dragPair: (args) => scene.input(args.x, args.y, args.dx, args.dy, args.scale),
+            },
+            keyboard: {
+                keydown: (args) => scene.isStopped = !scene.isStopped,
+            }
+        });
+
         return () => {
             scene.dispose();
+            handler.cleanup();
         };
     }, [astro]);
 

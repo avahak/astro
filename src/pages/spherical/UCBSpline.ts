@@ -1,30 +1,16 @@
 import * as THREE from 'three';
 import vsSpline from './shaders/vsSpline.glsl?raw';
 import fsSpline from './shaders/fsSpline.glsl?raw';
+import { MollweideProjection } from './Mollweide';
 
 function precomputeMollweideTheta(size: number) {
-    // Solving 2t+sin(2t)=pi*sin(pi/2*x) for all x in [0,1]
-    let iterAll = 0;
+    // Solving 2*tau+sin(2*tau)=pi*sin(pi/2*x) for all x in [0,1]
     const values = new Float32Array(size);
     for (let k = 0; k < size; k++) {
         const x = (k+0.5) / size;
-        const rhs = Math.PI * Math.sin(Math.PI/2*x);
-        let t = x;  // initial guess
-        let iter = 0;
-        while (true) {
-            // solve using Newton's method
-            const delta = 2*t + Math.sin(2*t) - rhs;
-            if (Math.abs(delta) < 1.0e-14)
-                break;
-            t = t - delta / (2*Math.cos(t))**2;
-            iter += 1;
-        }
-        iterAll += iter;
-        // console.log(Math.PI*x, iter, t, 2*t + Math.sin(2*t), 2*t + Math.sin(2*t) - rhs);
-        values[k] = t;
+        const theta = x * Math.PI/2;
+        values[k] = MollweideProjection.solveTau(theta);
     }
-    // console.log(iterAll);
-    // console.log(values);
     return values;
 }
 

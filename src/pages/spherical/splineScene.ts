@@ -4,6 +4,7 @@ import { UCBSplineGroup } from './UCBSpline';
 import vsCons from './shaders/vsCons.glsl?raw';
 import fsCons from './shaders/fsCons.glsl?raw';
 import { Constellations } from '../../constellations/precompute';
+import { MollweideProjection } from './Mollweide';
 
 function randomColor(k: number) {
     const f = (j: number) => 1 - Math.sin(j)**2;
@@ -27,6 +28,8 @@ class SplineScene {
 
     splineGroup!: UCBSplineGroup;
     splineObject!: THREE.Object3D;
+
+    scale: number = 1.5;
 
     constructor(container: HTMLDivElement, astro: any) {
         this.container = container;
@@ -94,19 +97,12 @@ class SplineScene {
         const myObject = {
             animateButton,
             toggleStop,
-            scale: 1.5,
             showSplines: true,
         };
         this.gui.add(myObject, 'animateButton').name('Animate step');
         this.gui.add(myObject, 'toggleStop').name('Toggle stop/play');
-        this.gui.add(myObject, 'scale', 0.2, 3.0)
-            .name('Scale')
-            .onChange((value: number) => {
-                this.shader.uniforms.scale.value = value;
-                this.splineGroup.shader.uniforms.scale.value = value;
-            });
         this.gui.add(myObject, 'showSplines')
-            .name('Scale')
+            .name('Show Splines')
             .onChange((value: boolean) => {
                 this.splineObject.visible = value;
             });
@@ -179,7 +175,7 @@ class SplineScene {
                 resolution: { value: null },
                 time: { value: 0 },
                 mvMatrix: { value: null },
-                scale: { value: 1.5 },
+                scale: { value: this.scale },
             },
             vertexShader: vsCons,
             fragmentShader: fsCons,
@@ -193,6 +189,29 @@ class SplineScene {
     getResolution() {
         const { clientWidth, clientHeight } = this.container;
         return new THREE.Vector2(clientWidth, clientHeight);
+    }
+
+    input(x: number, y: number, dx: number, dy: number, scale: number) {
+        // console.log(x, y, dx, dy, scale);
+
+        const res = this.getResolution();
+
+        const [x1, y1] = [2*(x-res.x/2)/res.y, 2*(y-res.y/2)/res.y];
+        const [x2, y2] = [2*(x+dx-res.x/2)/res.y, 2*(y+dy-res.y/2)/res.y];
+        // console.log(MollweideProjection.inverse(x1, y1, 1/this.scale));
+        // console.log('[x1, y1]', [x1, y1]);
+        const mi1 = MollweideProjection.inverse(x1, y1, 1/this.scale);
+        const mi2 = MollweideProjection.inverse(x2, y2, 1/this.scale);
+        if (mi1 && mi2) {
+            const [phi1, theta1] = mi1;
+            const [phi2, theta2] = mi2;
+            const dTheta = theta2 - theta1;
+            this.camera.rotateZ(phi1);
+            this.camera.rotateY(-dTheta);
+            this.camera.rotateZ(-phi2);
+        }
+
+        this.scale *= scale;
     }
 
     animate() {
@@ -210,9 +229,11 @@ class SplineScene {
         // this.splineObject.setRotationFromEuler(new THREE.Euler(0, 0, 0));
         // this.splineObject.setRotationFromEuler(new THREE.Euler(0, 0, 1.0+5.0*t));
         // this.scene.setRotationFromEuler(new THREE.Euler(0.2*Math.sin(31*t), 0.2*Math.cos(29*t), 15*t));
-        this.camera.lookAt(new THREE.Vector3(Math.cos(31*t), Math.sin(29*t), -1.0));
+        // this.camera.lookAt(new THREE.Vector3(Math.cos(31*t), Math.sin(29*t), -1.0));
 
         this.shader.uniforms.mvMatrix.value = this.camera.matrixWorld;
+        this.shader.uniforms.scale.value = this.scale;
+        this.splineGroup.shader.uniforms.scale.value = this.scale;
 
         this.renderer.render(this.scene, this.camera);
     }
