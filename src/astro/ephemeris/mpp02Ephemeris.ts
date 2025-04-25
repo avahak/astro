@@ -1,13 +1,13 @@
-import * as math from 'mathjs';
-import { rotationMatrix } from '../mathTools';
+import { PosVel } from '../math/posvel';
+import { cst } from '../constants';
+import { Vec } from '../math/vec';
 
 /**
  * Computes position and velocity of the Moon using ELP/MPP02.
- * Units: km for position, km/Julian day for velocity.
  */
 class MPP02Ephemeris {
     ARCSEC = Math.PI / 180 / 3600;
-    ECL_TO_EQU = rotationMatrix(0, 84381.448 * this.ARCSEC);    // angle ~23.44 deg
+    ECL_TO_EQU = Vec.rotationMatrix(0, 84381.448 * this.ARCSEC).valueOf() as number[][];
     W: number[];
     PC: number[];
     QC: number[];
@@ -26,9 +26,8 @@ class MPP02Ephemeris {
 
     /**
      * Returns position and velocity for the Moon given time in Julian centuries since J2000.0. 
-     * Units are km, Julian day.
      */
-    getPosVel(t: number) {
+    getPosVel(t: number): PosVel {
         const tPow = Array.from({ length: 6 }, (_, k) => Math.pow(t, k));
         const tPowP = Array.from({ length: 6 }, (_, k) => k > 0 ? k * tPow[k-1] : 0);
 
@@ -101,11 +100,9 @@ class MPP02Ephemeris {
         vel[2] += -2*pc2*h[0] + 2*qc2*h[1] - 2*d2p*h[2];
 
         // Rotate from mean ecliptic and equinox of J2000.0 to mean equator and equinox of J2000.0.
-        // Also change time unit to Julian day
-        const posEquatorial = math.multiply(this.ECL_TO_EQU, pos).valueOf() as number[];
-        const velEquatorial = math.multiply(math.multiply(this.ECL_TO_EQU, vel), 1/36525).valueOf() as number[];
-
-        return { 'pos': posEquatorial, 'vel': velEquatorial };
+        // Also change units from KM, Julian century
+        const pv = PosVel.scale(new PosVel(pos, vel), cst.KM);
+        return PosVel.applyMatrix(this.ECL_TO_EQU, pv);
     }
 }
 

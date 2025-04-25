@@ -4,7 +4,8 @@
  */
 
 import { cst } from "../constants";
-import { cartesianFromSpherical, xRotate, zRotate } from "../mathTools";
+import { cartesianFromSpherical } from "../math/mathTools";
+import { Vec } from "../math/vec";
 
 /**
  * Returns eccentric anomaly given mean anomaly and eccentricity.
@@ -43,7 +44,7 @@ function eclipticPositionFromElements(lan: number, i: number, aop: number, a: nu
     // First rotation: Argument of periapsis (z-rotation)
     // Second rotation: Inclination (x-rotation), 
     // Third rotation: Longitude of ascending node (z-rotation)
-    return zRotate(xRotate(zRotate([x, y, 0], aop), i), lan);
+    return Vec.zRotate(Vec.xRotate(Vec.zRotate([x, y, 0], aop), i), lan);
 }
 
 /**
@@ -98,7 +99,7 @@ function planetPosition(target: number, t: number): number[] | null {
             ke[1], 
             (ke[3] - ke[4])*cst.DEG
         );
-        return xRotate(p, 23.43928*cst.DEG);
+        return Vec.xRotate(p, 23.43928*cst.DEG);
     } else {
         // Use ppcomp formulas for Jupiter, Saturn, Uranus, Moon
         const d = t*36525 + 1.5;
@@ -175,7 +176,7 @@ function planetPosition(target: number, t: number): number[] | null {
         }
 
         const p = cartesianFromSpherical(r, latecl, lonecl+lonCorrPrecession);
-        return xRotate(p, ep);
+        return Vec.xRotate(p, ep);
     }
 }
 

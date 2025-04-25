@@ -3,7 +3,7 @@
  * Units are radian for angles, AU for distance, Julian century (36525 days) for time.
  */
 import * as math from "mathjs";
-import { rotationMatrix } from "./mathTools";
+import { Vec } from "./math/vec";
 
 const TAU = 2*Math.PI;
 const DEG = Math.PI / 180;
@@ -23,14 +23,19 @@ const MASS_RATIO_SUN_EARTH = 332946.050895;     // mass of sun / mass of earth
 const RATIO_EMB_MOON_TO_EARTH_MOON = 1.0/(1.0 + 1.0/MASS_RATIO_EARTH_MOON);     // ~0.988
 const RATIO_EMB_EARTH_TO_EARTH_MOON = RATIO_EMB_MOON_TO_EARTH_MOON - 1.0;       // ~-0.012
 
+// Source: https://en.wikipedia.org/wiki/Earth_radius
+const RADIUS_EARTH_E = 6378.137*KM;         // radius of Earth on equator
+const RADIUS_EARTH = 6371.0*KM;             // radius of Earth on average
+const RADIUS_EARTH_F = 1 / 298.257223563;   // flattening factor
+
 /**
  * Transformation from GCRS to the mean equator and equinox of J2000.0.
  * NOTE! Our rotation matrices have opposite sign than those of IAU Circular 179!
  */
 const FRAME_BIAS_MATRIX = math.multiply(
-    rotationMatrix(0, -0.0068192 * ARCSEC), 
-    rotationMatrix(1, 0.016617 * ARCSEC), 
-    rotationMatrix(2, 0.0146 * ARCSEC), 
+    Vec.rotationMatrix(0, -0.0068192 * ARCSEC), 
+    Vec.rotationMatrix(1, 0.016617 * ARCSEC), 
+    Vec.rotationMatrix(2, 0.0146 * ARCSEC), 
 ).valueOf() as number[][];
 
 const cst = {
@@ -38,6 +43,7 @@ const cst = {
     MASS_RATIO_EARTH_MOON, MASS_RATIO_SUN_EARTH,
     RATIO_EMB_MOON_TO_EARTH_MOON, RATIO_EMB_EARTH_TO_EARTH_MOON,
     FRAME_BIAS_MATRIX,
+    RADIUS_EARTH_E, RADIUS_EARTH_F, RADIUS_EARTH,
 
     ARCMIN: DEG / 60,
 
@@ -55,11 +61,7 @@ const cst = {
     MASS_EARTH: 5.9722e24,
     MASS_MOON: 7.342e22,
 
-    // Source: https://en.wikipedia.org/wiki/Earth_radius
-    RADIUS_EARTH_E: 6378.1370*KM,    // radius of Earth on equator
-    RADIUS_EARTH_P: 6356.7523*KM,    // radius of Earth on poles
-    RADIUS_EARTH_F: 1.0/298.25642,   // flattening factor
-    RADIUS_EARTH: 6371.0*KM,         // radius of Earth on average
+    RADIUS_EARTH_P: (1-RADIUS_EARTH_F)*RADIUS_EARTH_E,      // radius of Earth on poles
 
     EARTH_LOC_DICT: {
         'Helsinki': { lat: 60.167*DEG, lon: 24.942*DEG, h: 0 },

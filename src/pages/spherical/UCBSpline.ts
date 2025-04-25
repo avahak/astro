@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import vsSpline from './shaders/vsSpline.glsl?raw';
 import fsSpline from './shaders/fsSpline.glsl?raw';
-import { MollweideProjection } from './Mollweide';
+import { MollweideProjection } from './mollweide';
 
 function precomputeMollweideTheta(size: number) {
     // Solving 2*tau+sin(2*tau)=pi*sin(pi/2*x) for all x in [0,1]

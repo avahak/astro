@@ -4,11 +4,11 @@ import { Box, Container, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Link as MUILink } from '@mui/material';
 import { Graph } from '../../Graph';
-import { jcFromUnix } from "../../astro/time";
+import { jcFromUnix } from "../../astro/time/time";
 import { precessionMatrix } from "../../astro/precession";
 import { nutationMatrix } from "../../astro/nutation";
 import { rotationalElements } from "../../astro/ephemeris/rotationalElements";
-import { VSOP87AEphemeris } from "../../astro/ephemeris/json87aEphemeris";
+import { VSOP87AEphemeris } from "../../astro/ephemeris/vsop87aEphemeris";
 import { MPP02Ephemeris } from "../../astro/ephemeris/mpp02Ephemeris";
 const ThreeScene = React.lazy(() => import('./ThreeScene'));
 

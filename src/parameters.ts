@@ -1,9 +1,8 @@
 import * as math from 'mathjs';
-import { horizontalFromGCRS } from "./astro/frames";
 import { planetPosition } from "./astro/ephemeris/orbitalElements";
 import { cst } from "./astro/constants";
-import { earthPosition } from "./astro/earth";
-import { rotationMatrix } from './astro/mathTools';
+import { Vec } from './astro/math/vec';
+import { GeoLocation } from './astro/types';
 
 type ViewDirection = {
     phi: number;        // azimuthal angle on the xy-plane
@@ -17,7 +16,7 @@ class SceneParameters {
 
     t!: number;
     location!: GeoLocation;
-    horizonMatrix!: math.Matrix<math.MathNumericType>;
+    horizonMatrix!: number[][];
     
     pSun!: number[];
     pMoon!: number[];
@@ -37,13 +36,12 @@ class SceneParameters {
         if (update.location)
             this.location = update.location;
 
-        this.horizonMatrix = horizontalFromGCRS(this.location, this.t);
+        this.horizonMatrix = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 
-        const pEarth0 = earthPosition(this.t);
-        const pEarth = math.multiply(this.horizonMatrix, pEarth0).valueOf();
+        const pEarth = [0.7, 0.7, -0.2];
         this.pSun = math.multiply(pEarth, -1).valueOf() as number[];
         this.pMoon = math.multiply(this.horizonMatrix, planetPosition(301, this.t)!).valueOf() as number[];
-        this.pJupiter = math.multiply(this.horizonMatrix, math.subtract(planetPosition(5, this.t)!, pEarth0)).valueOf() as number[];
+        this.pJupiter = math.multiply(this.horizonMatrix, planetPosition(5, this.t)!).valueOf() as number[];
 
         // [1, 2, 3, 4, 5, 6, 7, 8, 9, 301].forEach((code) => {
         //     let pos = planetPosition(code, this.t);
@@ -56,7 +54,10 @@ class SceneParameters {
             this.focalLength = update.focalLength;
         if (update.viewDirection) {
             this.viewDirection = update.viewDirection;
-            this.viewMatrix = math.transpose(math.multiply(rotationMatrix(2, this.viewDirection.phi), rotationMatrix(1, this.viewDirection.theta-Math.PI/2))).valueOf().flat() as number[];
+            this.viewMatrix = math.transpose(math.multiply(
+                Vec.rotationMatrix(2, this.viewDirection.phi), 
+                Vec.rotationMatrix(1, this.viewDirection.theta-Math.PI/2)
+            )).valueOf().flat() as number[];
         }
     }
 }

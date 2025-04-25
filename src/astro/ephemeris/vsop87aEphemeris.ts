@@ -1,10 +1,9 @@
-import * as math from 'mathjs';
+import { PosVel } from '../math/posvel';
 
 /**
  * Computes planet positions and velocities w.r.t. the Sun using VSOP87A series.
  */
 class VSOP87AEphemeris {
-    AU = 149597870.691;  // AU in km
     bodies: any;
     matrix: number[][];
 
@@ -21,12 +20,12 @@ class VSOP87AEphemeris {
      * Returns position and velocity for given body and time in Julian centuries since J2000.0. 
      * Units are km, Julian day.
      */
-    getPosVel(bodyName: string, t: number) {
+    getPosVel(bodyName: string, t: number): PosVel {
         const tPow = Array.from({ length: 6 }, (_, k) => Math.pow(t, k));
         const tPowP = Array.from({ length: 6 }, (_, k) => k > 0 ? k * Math.pow(t, k-1) : 0);
         
-        let pos = [0, 0, 0];
-        let vel = [0, 0, 0];
+        const pos = [0, 0, 0];
+        const vel = [0, 0, 0];
         this.bodies[bodyName].forEach((group: any) => {
             const coord = group['coord'];
             const alpha = group['alpha'];
@@ -46,9 +45,8 @@ class VSOP87AEphemeris {
             vel[coord] += tPowP[alpha] * sumPos + tPow[alpha] * sumVel;
         });
 
-        pos = math.multiply(math.multiply(this.matrix, pos), this.AU).valueOf() as number[];
-        vel = math.multiply(math.multiply(this.matrix, vel), this.AU / 36525).valueOf() as number[];
-        return { pos, vel };
+        // Units are already AU/Julian century, just apply the matrix
+        return PosVel.applyMatrix(this.matrix, new PosVel(pos, vel));
     }
 }
 

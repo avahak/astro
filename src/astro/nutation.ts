@@ -7,7 +7,8 @@
 
 import * as math from "mathjs";
 import { cst } from "./constants";
-import { evaluatePolynomial, rotationMatrix } from "./mathTools";
+import { evaluatePolynomial } from "./math/mathTools";
+import { Vec } from "./math/vec";
 
 const NUTATION_COEFFS = [ 
     [ 0,  0,  0,  0,  1,     -172064161, -174666,  33386,     92052331,  9086, 15377],
@@ -146,9 +147,9 @@ function nutation2000B(t: number): [number, number, number] {
  */
 function nutationMatrixFromParameters(ep: number, de: number, dp: number): number[][] {
     return math.multiply(
-        rotationMatrix(0, ep + de),
-        rotationMatrix(2, dp), 
-        rotationMatrix(0, -ep)
+        Vec.rotationMatrix(0, ep + de),
+        Vec.rotationMatrix(2, dp), 
+        Vec.rotationMatrix(0, -ep)
     ).valueOf() as number[][];
 }
 
@@ -187,4 +188,4 @@ function nutationMatrix(t: number, method: "IAU2000B"|"basic"="IAU2000B"): numbe
     return nutationMatrixFromParameters(...nutation(t, method));
 }
 
-export { nutation, nutationMatrix };
+export { nutation, nutationMatrix, nutationMatrixFromParameters };

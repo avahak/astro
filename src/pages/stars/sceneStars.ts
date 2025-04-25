@@ -5,8 +5,8 @@ import * as THREE from 'three';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { matrixFromRotationalElements, rotationalElements } from '../../astro/ephemeris/rotationalElements';
 import * as math from 'mathjs';
-import { rotationMatrix } from '../../astro/mathTools';
 import { cst } from '../../astro/constants';
+import { Vec } from '../../astro/math/vec';
 
 const naifIds = [301, 199, 299, 399, 499, 599, 699, 799, 899];
 
@@ -160,9 +160,9 @@ class StarsScene {
             const naifId = naifIds[k];
             const [ra, de, W] = rotationalElements(naifId, t);
             const mat = math.multiply(
-                rotationMatrix(0, -23.44*cst.DEG), 
+                Vec.rotationMatrix(0, -23.44*cst.DEG), 
                 matrixFromRotationalElements(ra, de, W),
-                rotationMatrix(0, Math.PI/2),           // fix orientation of three.js coordinate system
+                Vec.rotationMatrix(0, Math.PI/2),           // fix orientation of three.js coordinate system
             ).valueOf() as number[][];
 
             const m4 = new THREE.Matrix4().set(

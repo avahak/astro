@@ -458,6 +458,15 @@ def parse_nebulae(vmag_limit):
     print(f'parse_nebulae: nebulae: {len(nebulae)}, {file_op.json_string_size(nebulae)/1024:.2f} KB')
     return nebulae
 
+def parse_delta_t():
+    """ 
+    Delta_t has already been computed in delta_t.py, use its output.
+    """
+    with open(R'd:/resources/astro/generated/delta_t.json', 'r') as f:
+        delta_t = json.load(f)
+    print(f'parse_delta_t: {file_op.json_string_size(delta_t)/1024:.2f} KB')
+    return delta_t
+
 @tools.time_it
 def main():
     vmag_limit = 7.0
@@ -469,6 +478,7 @@ def main():
     data['clusters'] = parse_clusters()
     data['galaxies'] = parse_galaxies(vmag_limit)
     data['nebulae'] = parse_nebulae(vmag_limit)
+    data['delta_t'] = parse_delta_t()
 
     file_op.write_json(data, write_file=True, zip=True)
 

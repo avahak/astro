@@ -242,13 +242,15 @@ function drawLinesAndPoints(
 ) {
     data.forEach((dataset, k) => {
         const color = dataset.color ?? defaultFontColorFunction(k);
-        graphGroup.append('path')
-            .datum(dataset.points)
-            .attr('class', `dataset-${k}`)
-            .attr('fill', 'none')
-            .attr('stroke', color)
-            .attr('stroke-width', 2 * (dataset.strokeScale ?? 1))
-            .attr('d', lines[k]);
+        if (dataset.showLines !== false) {
+            graphGroup.append('path')
+                .datum(dataset.points)
+                .attr('class', `dataset-${k}`)
+                .attr('fill', 'none')
+                .attr('stroke', color)
+                .attr('stroke-width', 2 * (dataset.strokeScale ?? 1))
+                .attr('d', lines[k]);
+        }
 
         if (dataset.showPoints) {
             graphGroup.selectAll(`circle.dataset-${k}`)
@@ -284,6 +286,7 @@ type DataSet = {
     color?: string;
     legendText?: string;
     showPoints?: boolean;
+    showLines?: boolean;
     smoothenCurve?: boolean;
     strokeScale?: number;
 };
@@ -384,9 +387,11 @@ const Graph: React.FC<GraphProps> = ({
                 const newYScale = transform.rescaleY(yScale);
         
                 // Update all lines
-                data.forEach((_, k) => {
-                    graphGroup.selectAll<SVGPathElement, DataPoint[]>(`path.dataset-${k}`)
-                        .attr('d', lines[k].x(d => newXScale(d.x)).y(d => newYScale(d.y)));
+                data.forEach((dataset, k) => {
+                    if (dataset.showLines !== false) {
+                        graphGroup.selectAll<SVGPathElement, DataPoint[]>(`path.dataset-${k}`)
+                            .attr('d', lines[k].x(d => newXScale(d.x)).y(d => newYScale(d.y)));
+                    }
                 });
                 
                 // Update all points
@@ -428,4 +433,5 @@ const Graph: React.FC<GraphProps> = ({
     );
 };
 
+export type { DataSet, DataPoint };
 export { Graph };

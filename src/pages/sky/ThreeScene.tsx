@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { MainScene } from './sceneMain';
 import { InputListener } from '../../inputListener';
-import { clamp } from '../../astro/mathTools';
+import { clamp } from '../../astro/math/mathTools';
 import { cst } from '../../astro/constants';
 
 const SceneComponent: React.FC = () => { 

@@ -4,7 +4,7 @@ import { UCBSplineGroup } from './UCBSpline';
 import vsCons from './shaders/vsCons.glsl?raw';
 import fsCons from './shaders/fsCons.glsl?raw';
 import { Constellations } from '../../constellations/precompute';
-import { MollweideProjection } from './Mollweide';
+import { MollweideProjection } from './mollweide';
 
 function randomColor(k: number) {
     const f = (j: number) => 1 - Math.sin(j)**2;

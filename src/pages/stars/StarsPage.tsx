@@ -3,7 +3,7 @@ import { Box, Container, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Link as MUILink } from '@mui/material';
 import { StarsScene } from './sceneStars';
-import { VSOP87AEphemeris } from "../../astro/ephemeris/json87aEphemeris";
+import { VSOP87AEphemeris } from "../../astro/ephemeris/vsop87aEphemeris";
 import { MPP02Ephemeris } from "../../astro/ephemeris/mpp02Ephemeris";
 import pako from 'pako';
 
@@ -50,8 +50,8 @@ const SceneComponent: React.FC = () => {
         const processVSOP87A = (data: any) => setVSOP87A(new VSOP87AEphemeris(data));
         const processMPP02 = (data: any) => setMPP02(new MPP02Ephemeris(data));
         const processAstro = (data: any) => setAstro(data);
-        loadData('vsop87a_truncated_medium.json.gz', processVSOP87A, controller);
-        loadData('mpp02_llr_truncated_medium.json.gz', processMPP02, controller);
+        loadData('ephemeris/vsop87a_truncated_medium.json.gz', processVSOP87A, controller);
+        loadData('ephemeris/mpp02_llr_truncated_medium.json.gz', processMPP02, controller);
         loadData('astro.json.gz', processAstro, controller);
 
         return () => {

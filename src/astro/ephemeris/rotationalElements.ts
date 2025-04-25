@@ -13,10 +13,9 @@
  * 
  * Related: https://en.wikipedia.org/wiki/Prime_meridian
  */
-
 import * as math from "mathjs";
-import { rotationMatrix } from "../mathTools";
 import { cst } from "../constants";
+import { Vec } from "../math/vec";
 
 /**
  * Returns (ra,de,W) for the target object at time t. Here (ra,de) is direction of 
@@ -133,9 +132,9 @@ function rotationalElements(target: number, t: number) {
  */
 function matrixFromRotationalElements(ra: number, de: number, W: number) {
     return math.multiply(
-        rotationMatrix(2, ra),
-        rotationMatrix(1, Math.PI/2-de),
-        rotationMatrix(2, W)
+        Vec.rotationMatrix(2, ra),
+        Vec.rotationMatrix(1, Math.PI/2-de),
+        Vec.rotationMatrix(2, W)
     ).valueOf() as number[][];
 }
 

@@ -7,7 +7,8 @@
 
 import * as math from "mathjs";
 import { cst } from "./constants";
-import { cross, evaluatePolynomial, rotationMatrix, normalize, xRotate, length } from "./mathTools";
+import { cartesianFromSpherical, evaluatePolynomial, sphereTangentPlaneBasisENU, trueMotionCartesianToSpherical, trueMotionSphericalToCartesian } from "./math/mathTools";
+import { Vec } from "./math/vec";
 
 // Axial tilt at J2000.0
 const EP_J2000 = 84381.406 * cst.ARCSEC;
@@ -76,7 +77,7 @@ function sumTerms(t: number, polynomialTerms: number[][], periodicTerms: number[
 function eclipticPole(t: number): number[] {
     const [p, q] = sumTerms(t, PQ_POLYNOMIAL, PQ_PERIODIC);
     const z = Math.sqrt(Math.max(1 - p*p - q*q, 0));
-    return xRotate([p, -q, z], EP_J2000);
+    return Vec.xRotate([p, -q, z], EP_J2000);
 }
 
 /**
@@ -92,10 +93,10 @@ function equatorPole(t: number): number[] {
  * Long-term precession matrix
  */
 function precessionLongTermMatrix(t: number): number[][] {
-    const v = normalize(equatorPole(t));
+    const v = Vec.normalize(equatorPole(t));
     const w = eclipticPole(t);
-    const c = normalize(cross(v, w));
-    const d = normalize(cross(v, c));
+    const c = Vec.normalize(Vec.cross(v, w));
+    const d = Vec.normalize(Vec.cross(v, c));
     return [c, d, v];
 }
 
@@ -112,9 +113,9 @@ function precessionBasicMatrix(t: number): math.Matrix {
     const th = evaluatePolynomial(thCoeffs, t) * cst.ARCSEC;
 
     return math.multiply(
-        rotationMatrix(2, z),
-        rotationMatrix(1, -th), 
-        rotationMatrix(2, ze)
+        Vec.rotationMatrix(2, z),
+        Vec.rotationMatrix(1, -th), 
+        Vec.rotationMatrix(2, ze)
     );
 }
 
@@ -128,4 +129,104 @@ function precessionMatrix(t: number, method: "long"|"basic"="long") {
     return precessionLongTermMatrix(t);
 }
 
-export { eclipticPole, equatorPole, precessionMatrix };
+/**
+ * Returns precession matrix needed to change epoch from t0 to t1
+ */
+function _intervalPrecessionMatrix(t0: number, t1: number): number[][] {
+    return math.multiply(
+        precessionMatrix(t1),
+        math.transpose(precessionMatrix(t0))
+    ).valueOf() as number[][];
+}
+
+/**
+ * Computes how position angle changes under precession from t0 to t1.
+ * Returns position angle at epoch t1.
+ * The position angle is the angle relative to a reference direction (e.g., north) 
+ * on the celestial sphere, measured eastward from north.
+ */
+function precessPa(precessionMatrix: number[][], rade: [number, number], pa: number): number {
+    const p = cartesianFromSpherical(1, rade[1], rade[0]);
+    const [uEast, uNorth] = sphereTangentPlaneBasisENU(p);
+    const dp = Vec.wSum([uNorth, uEast], [Math.cos(pa), Math.sin(pa)]);
+    const p1 = Vec.applyMatrix(precessionMatrix, p);
+    const dp1 = Vec.applyMatrix(precessionMatrix, dp);
+    const [uEast1, uNorth1] = sphereTangentPlaneBasisENU(p1);
+    return Math.atan2(Vec.dot(dp1, uEast1), Vec.dot(dp1, uNorth1));
+}
+
+/**
+ * Given position and velocity for a star at time t0, combine
+ * linear motion and precession to compute its position and velocity at t1.
+ */
+function applyTrueMotionCartesian(
+    t0: number,
+    t1: number,
+    p0: number[],
+    v0: number[],
+    precessionMatrix: number[][] | null
+): [number[], number[]] {
+    let p1 = Vec.wSum([p0, v0], [1, t1-t0]);
+    p1 = precessionMatrix ? Vec.applyMatrix(precessionMatrix, p1) : p1;
+    let v1 = precessionMatrix ? Vec.applyMatrix(precessionMatrix, v0) : v0;
+    return [p1, v1];
+}
+
+/**
+ * Spherical coordinate equivalent of applyTrueMotionCartesian.
+ * So, given position and velocity for a star at t0 in rade, pm_rade, r, rv, 
+ * use linear motion and precession to return rade, pm_rade, r, rv at t1.
+ *
+ * Allows r0=null or rv0=null as special cases. In these special cases motion along
+ * a great circle of the sphere is used instead of linear motion.
+ */
+function applyTrueMotionSpherical(
+    t0: number,
+    t1: number,
+    rade0: [number, number],
+    pmRade0: [number, number],
+    r0: number | null,
+    rv0: number | null,
+    precessionMatrix: number[][] | null
+): [number[], number[], number | null, number | null] {
+    // Here we always assume that rade0, pm_rade0 are given and finite
+    // but we might be missing r0 or rv0
+    if (r0 === null) {
+        // No r0: act as if no rv0 given either
+        rv0 = null;
+    }
+    
+    if (rv0 === null) {
+        // Case: rv0 missing: follow a great circle in the direction of proper motion
+        const [p0, dp0] = trueMotionSphericalToCartesian(rade0, pmRade0, 1, 0);
+        const lengthDp0 = Vec.norm(dp0);
+        
+        if (lengthDp0 < 1e-10) {
+            // dp0 is very small so just treat it as zero:
+            const p1 = precessionMatrix ? Vec.applyMatrix(precessionMatrix, p0) : p0;
+            const dp1 = Vec.zeros(3);
+            const [rade1, pmRade1] = trueMotionCartesianToSpherical(p1, dp1);
+            return [rade1, pmRade1, r0, null];
+        } else {
+            // Here move on r=1 sphere surface along a great circle
+            const deltaT = lengthDp0 * (t1 - t0);
+            const q = Vec.wSum([p0, dp0], [Math.cos(deltaT), Math.sin(deltaT)/lengthDp0]);
+            const dq = Vec.wSum([p0, dp0], [-lengthDp0*Math.sin(deltaT), Math.cos(deltaT)]);
+            const p1 = precessionMatrix ? Vec.applyMatrix(precessionMatrix, q) : q;
+            const dp1 = precessionMatrix ? Vec.applyMatrix(precessionMatrix, dq) : dq;
+            const [rade1, pmRade1] = trueMotionCartesianToSpherical(p1, dp1);
+            return [rade1, pmRade1, r0, null];
+        }
+    }
+    
+    // Case: all values given
+    const [p0, dp0] = trueMotionSphericalToCartesian(rade0, pmRade0, r0!, rv0);
+    let p1 = Vec.wSum([p0, dp0], [1, t1-t0]);
+    p1 = precessionMatrix ? Vec.applyMatrix(precessionMatrix, p1) : p1;
+    const dp1 = precessionMatrix ? Vec.applyMatrix(precessionMatrix, dp0) : dp0;
+    const [rade1, pmRade1, r1, rv1] = trueMotionCartesianToSpherical(p1, dp1);
+    return [rade1, pmRade1, r1, rv1];
+}
+
+export { eclipticPole, equatorPole, precessionMatrix,
+    precessPa, applyTrueMotionCartesian, applyTrueMotionSpherical };
