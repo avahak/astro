@@ -41,6 +41,10 @@ const FrontPage = () => {
                     Comparison
                 </MUILink>
                 <br />
+                <MUILink component={RouterLink} to="/test_old" variant="body1" color="primary">
+                    Test (old)
+                </MUILink>
+                <br />
                 <MUILink component={RouterLink} to="/test" variant="body1" color="primary">
                     Test
                 </MUILink>

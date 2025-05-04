@@ -7,8 +7,7 @@ import { VSOP87AEphemeris } from "../astro/ephemeris/vsop87aEphemeris";
 import { MPP02Ephemeris } from "../astro/ephemeris/mpp02Ephemeris";
 import { applySavitzkyGolayFilter, uniformlySpacedResample } from '../tools/savitzkyGolayFilter';
 import { Vec } from '../astro/math/vec';
-import { DataSet, GraphText } from '../tools/graph/types';
-import { Graph } from '../tools/graph/Graph';
+import { DataSetD3, GraphD3 } from '../GraphD3';
 
 const TestPage: React.FC = () => {
     const [vsop87a, setVSOP87A] = useState<VSOP87AEphemeris|null>(null);
@@ -77,8 +76,8 @@ const TestPage: React.FC = () => {
     // const kernels = computeSgKernels(5, 1);
     // console.log(kernels);
 
-    const n = 100000;
-    const m = 2000;
+    const n = 50000;
+    const m = 5000;
     const xs: number[] = [];
     const ys: number[] = [];
     for (let k = 0; k < n; k++) {
@@ -100,68 +99,38 @@ const TestPage: React.FC = () => {
 
     const [xi, yi] = uniformlySpacedResample(xsSorted, ysSorted, m);
 
-    const sg = applySavitzkyGolayFilter(xs, ys, 50, 3, m);
+    const sg = applySavitzkyGolayFilter(xs, ys, 20, 3, m);
     // console.log(sg);
 
     const sList: { x: number, y: number }[] = Array(n).fill(0).map((_v: any, k) => {
         return { x: xs[k], y: ys[k] };
     });
-    const sPoints: DataSet = { 
-        points: sList, 
-        label: 'Raw datapoints', 
-        scale: 5, 
-        drawPoints: true, 
-        drawLines: false, 
-        color: 'rgba(225, 202, 29)',
-        opacity: 0.2,
-    };
+    const sPoints: DataSetD3 = { points: sList, legendText: 'Raw datapoints', smoothenCurve: false, strokeScale: 1, showPoints: true, showLines: false, color: 'rgba(225, 202, 29, 0.3)' };
 
     const iList: { x: number, y: number }[] = Array(m).fill(0).map((_v: any, k) => {
         return { x: xi[k], y: yi[k] };
     });
-    const iPoints: DataSet = { 
-        points: iList, 
-        label: 'Interpolated', 
-        scale: 3.5, 
-        drawPoints: false, 
-        drawLines: true, 
-        color: 'rgba(74, 133, 233)',
-        // opacity: 0.5,
-    };
+    const iPoints: DataSetD3 = { points: iList, legendText: 'Interpolated', smoothenCurve: false, strokeScale: 1, showPoints: true, color: 'rgba(74, 33, 133, 0.5)' };
 
     const sgList: { x: number, y: number }[] = Array(m).fill(0).map((_v: any, k) => {
         return { x: sg[0][k], y: sg[1][k] };
     });
-    const sgPoints: DataSet = {
-        points: sgList, 
-        label: 'Filtered', 
-        scale: 2, 
-        drawPoints: false, 
-        drawLines: true, 
-        color: 'red' 
-    };
-
-    const texts: GraphText[] = Array.from({ length: 1000 }).map((_, k) => ({ 
-        p: { x: Vec.randomGaussian(1, 10)[0], y: Vec.randomGaussian(1, 10)[0] },
-        size: 1, 
-        color: [1, 1, 1], 
-        text: `Text_${k}`,
-        visibleScale: Math.exp(Vec.randomGaussian(2, 1)[0]),
-    }));
+    const sgPoints: DataSetD3 = { points: sgList, legendText: 'Smoothed', smoothenCurve: false, strokeScale: 2, showPoints: false, color: 'red' };
 
     return (<>
-        <Box display="flex" flexDirection="column" margin="20px">
-            <Graph 
-                data={[sPoints, iPoints, sgPoints]} 
-                texts={texts}
-                width="100%"
-                height="600px" 
-                title={"Savitzky-Golay filter"}
-                location={{ x: 10, y: 0, scale: 5 }}
-            />
+        <Box display="flex">
             <MUILink component={RouterLink} to="/" variant="body1" color="primary">
                 Back
             </MUILink>
+            <GraphD3 
+                data={[sPoints, iPoints, sgPoints]} 
+                // pointsOfInterest={pois}
+                width={1200} 
+                height={700} 
+                coordCenter={[0, 0]}
+                coordRange={10}
+                titleText="Savitzky-Golay filter"
+            />
         </Box>
     </>)
 }

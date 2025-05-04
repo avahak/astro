@@ -6,7 +6,7 @@
  * https://en.wikipedia.org/wiki/Savitzky%E2%80%93Golay_filter
  */
 import * as math from 'mathjs';
-import { Vec } from '../math/vec';
+import { Vec } from '../astro/math/vec';
 
 
 /**

@@ -115,7 +115,7 @@ function drawAxes(
 // Helper function to draw the legend
 function drawLegend(
     overlayGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
-    data: DataSet[],
+    data: DataSetD3[],
     width: number,
     functionLegendStyle: { fontSize: string, fontFamily: string, fontWeight: string, fontColorBase: string }
 ) {
@@ -168,7 +168,7 @@ function drawTitle(
 // Helper function to draw points of interest
 function drawPointsOfInterest(
     poiGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
-    pointsOfInterest: PointOfInterest[],
+    pointsOfInterest: PointOfInterestD3[],
     xScale: d3.ScaleLinear<number, number>,
     yScale: d3.ScaleLinear<number, number>,
     pointOfInterestStyle: { pointSize: number; defaultPointColor: string; fontSize: string; fontFamily: string; fontWeight: string; fontColor: string; },
@@ -235,8 +235,8 @@ function createGrid(
 // Helper function to draw lines and points
 function drawLinesAndPoints(
     graphGroup: d3.Selection<SVGGElement, unknown, null, undefined>,
-    data: DataSet[],
-    lines: d3.Line<DataPoint>[],
+    data: DataSetD3[],
+    lines: d3.Line<DataPointD3>[],
     xScale: d3.ScaleLinear<number, number>,
     yScale: d3.ScaleLinear<number, number>
 ) {
@@ -267,7 +267,7 @@ function drawLinesAndPoints(
 }
 
 // A point of interest is a point with text
-type PointOfInterest = {
+type PointOfInterestD3 = {
     x: number;
     y: number;
     text: string;
@@ -275,14 +275,14 @@ type PointOfInterest = {
 };
 
 // One point of a graph
-type DataPoint = {
+type DataPointD3 = {
     x: number;
     y: number;
 };
 
 // One graph
-type DataSet = {
-    points: DataPoint[];
+type DataSetD3 = {
+    points: DataPointD3[];
     color?: string;
     legendText?: string;
     showPoints?: boolean;
@@ -291,9 +291,9 @@ type DataSet = {
     strokeScale?: number;
 };
 
-type GraphProps = {
-    data: DataSet[];
-    pointsOfInterest?: PointOfInterest[];
+type GraphPropsD3 = {
+    data: DataSetD3[];
+    pointsOfInterest?: PointOfInterestD3[];
     width?: number;
     height?: number;
     coordCenter?: [number, number];
@@ -305,7 +305,7 @@ type GraphProps = {
     titleText?: string;
 };
 
-const Graph: React.FC<GraphProps> = ({ 
+const GraphD3: React.FC<GraphPropsD3> = ({ 
     data,
     pointsOfInterest = [],
     width = 600,
@@ -368,9 +368,9 @@ const Graph: React.FC<GraphProps> = ({
         createGrid(gridGroup, xScale, yScale, width, height, axisLabelStyle);
 
         // Create the line generator
-        const lines: d3.Line<DataPoint>[] = [];
+        const lines: d3.Line<DataPointD3>[] = [];
         data.forEach((dataset, _) => {
-            const line = d3.line<DataPoint>()
+            const line = d3.line<DataPointD3>()
                 .x(d => xScale(d.x))
                 .y(d => yScale(d.y))
                 .curve(dataset.smoothenCurve ? d3.curveNatural : d3.curveLinear);
@@ -389,7 +389,7 @@ const Graph: React.FC<GraphProps> = ({
                 // Update all lines
                 data.forEach((dataset, k) => {
                     if (dataset.showLines !== false) {
-                        graphGroup.selectAll<SVGPathElement, DataPoint[]>(`path.dataset-${k}`)
+                        graphGroup.selectAll<SVGPathElement, DataPointD3[]>(`path.dataset-${k}`)
                             .attr('d', lines[k].x(d => newXScale(d.x)).y(d => newYScale(d.y)));
                     }
                 });
@@ -397,16 +397,16 @@ const Graph: React.FC<GraphProps> = ({
                 // Update all points
                 data.forEach((dataset, k) => {
                     if (dataset.showPoints) {
-                        graphGroup.selectAll<SVGPathElement, DataPoint>(`circle.dataset-${k}`)
+                        graphGroup.selectAll<SVGPathElement, DataPointD3>(`circle.dataset-${k}`)
                             .attr('cx', d => newXScale(d.x))
                             .attr('cy', d => newYScale(d.y));
                     }
                 });
 
-                poiGroup.selectAll<SVGCircleElement, PointOfInterest>('.poi-point')
+                poiGroup.selectAll<SVGCircleElement, PointOfInterestD3>('.poi-point')
                     .attr('cx', d => newXScale(d.x))
                     .attr('cy', d => newYScale(d.y));
-                poiGroup.selectAll<SVGTextElement, PointOfInterest>('.poi-text')
+                poiGroup.selectAll<SVGTextElement, PointOfInterestD3>('.poi-text')
                     .attr('x', d => newXScale(d.x))
                     .attr('y', d => newYScale(d.y));
         
@@ -433,5 +433,5 @@ const Graph: React.FC<GraphProps> = ({
     );
 };
 
-export type { DataSet, DataPoint };
-export { Graph };
+export type { DataSetD3, DataPointD3 };
+export { GraphD3 };

@@ -1,9 +1,8 @@
 /**
  * Maybe transform this into page explaining errors and assumptions in coordinate tranformation.
  * 
- * NOTE the error with Astropy data is mainly (for couple thousand years) from different
- * formula of GMST. This is clear from the graphs.
- * However, JPL Horizons explicitly states it uses the older GMST formula.
+ * NOTE the error with Astropy data changes with the GMST formula used.
+ * JPL Horizons explicitly states it uses the older GMST formula.
  * https://ssd.jpl.nasa.gov/horizons/manual.html
  */
 import pako from 'pako';
@@ -19,10 +18,10 @@ import { PosVel } from '../astro/math/posvel';
 import { Vec, VecStats } from '../astro/math/vec';
 import { cst } from '../astro/constants';
 import { GeoLocation, Trajectory } from '../astro/types';
-import { DataPoint, DataSet, Graph } from '../Graph';
+import { DataPointD3, DataSetD3, GraphD3 } from '../GraphD3';
 import { destructureStarData, StarData } from '../astro/stars';
 import { cartesianFromSpherical, trueMotionSphericalToCartesian } from '../astro/math/mathTools';
-import { applySavitzkyGolayFilter } from '../astro/tools/savitzkyGolayFilter';
+import { applySavitzkyGolayFilter } from '../tools/savitzkyGolayFilter';
 
 const YEAR_RANGE = [-2000, 5000];
 const HEADERS = ["JD", "Delta T", "raJ2000", "decJ2000", "raDate", "decDate", "Az", "Alt", "Sidereal time", "HA", "GAST", "lightTime"];
@@ -399,7 +398,7 @@ const MajorBodyTest: React.FC<{ vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris
     return (
         <Container maxWidth="xl">
         <Box display="flex" flexDirection="column" gap="50px" justifyContent="center" sx={{py: 2}}>
-            <Graph 
+            <GraphD3 
                 data={[gastPoints, dtPoints, lsPoints]} 
                 // data={[lsPoints]}
                 pointsOfInterest={pois}
@@ -435,7 +434,7 @@ const StarTest: React.FC<{ vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, ast
         astroStarMap.set(star.HIP, star);
     });
 
-    const dots: DataPoint[] = [];
+    const dots: DataPointD3[] = [];
 
     for (const row of astropyStars.data) {
         let _rowObj: any = {};
@@ -489,7 +488,7 @@ const StarTest: React.FC<{ vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, ast
     }
 
     dots.sort((a, b) => b.x - a.x);
-    const dotsPoints: DataSet = { 
+    const dotsPoints: DataSetD3 = { 
         points: dots, legendText: 'Error', strokeScale: 1, 
         color: 'rgba(50,90,150,0.3)', showLines: false, showPoints: true 
     };
@@ -502,8 +501,6 @@ const StarTest: React.FC<{ vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, ast
         legendText: 'SG', smoothenCurve: false, strokeScale: 2, color: 'red'
     };
 
-    console.log(dots, sg);
-
     return (
         <Container maxWidth="xl">
         <Box display="flex" flexDirection="column" gap="50px" justifyContent="center" sx={{py: 2}}>
@@ -511,7 +508,7 @@ const StarTest: React.FC<{ vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, ast
                 Star stats
             </Typography>
             <StarStatsTable results={results} />
-            <Graph 
+            <GraphD3 
                 data={[dotsPoints, sgPoints]} 
                 // data={[lsPoints]}
                 // pointsOfInterest={pois}

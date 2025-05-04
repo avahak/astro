@@ -3,7 +3,7 @@ import React from 'react';
 import { Box, Container, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Link as MUILink } from '@mui/material';
-import { Graph } from '../../Graph';
+import { GraphD3 } from '../../GraphD3';
 import { jcFromUnix } from "../../astro/time/time";
 import { precessionMatrix } from "../../astro/precession";
 import { nutationMatrix } from "../../astro/nutation";
@@ -81,7 +81,7 @@ const PrecessionPage: React.FC = () => {
                 </Typography>
             </Box>
             <Box style={{ width: "100%" }}>
-                <Graph 
+                <GraphD3 
                     data={[gnp1, gnp3]} 
                     pointsOfInterest={[poim2000, poi1900, poi2000, poi2100, poi5000, poi50k, poiNow]}
                     width={1000} 
@@ -90,7 +90,7 @@ const PrecessionPage: React.FC = () => {
                     coordRange={0.00008}
                     // titleText="Precession vs both"
                 />
-                <Graph 
+                <GraphD3 
                     data={[gnp1]} 
                     pointsOfInterest={[poim2000, poi1900, poi2000, poi2100, poi5000, poi50k, poiNow]}
                     width={600} 
@@ -99,7 +99,7 @@ const PrecessionPage: React.FC = () => {
                     coordRange={0.5}
                     titleText="Precession only"
                 />
-                <Graph 
+                <GraphD3 
                     data={[gnp2]} 
                     pointsOfInterest={[qpoi2020, qpoi2025, qpoi2026, qpoi2030, qpoiNow]}
                     width={600} 
