@@ -138,7 +138,7 @@ class Time {
      * 
      * Source: IAUCircular179.pdf p. 16
      */
-    _GMST(): number {
+    GMST(): number {
         const gmstCoeffs = [0.014506, 4612.156534, 1.3915817, -0.00000044, -0.000029956, -0.0000000368];
         const gmstPart = evaluatePolynomial(gmstCoeffs, this.jc_tdb);
         return (this._ERA() + cst.TAU*gmstPart/15/86400) % cst.TAU;
@@ -150,7 +150,7 @@ class Time {
      * 
      * Source: https://ssd.jpl.nasa.gov/horizons/manual.html (Greenwich Mean Sidereal Time)
      */
-    GMST(): number {
+    _GMST(): number {
         const x = 67310.548 + (3155760000 + 8640184.812866)*this.jc_ut1 + 0.093104*(this.jc_ut1**2) - 6.2e-6*(this.jc_ut1**3);
         const y = (x / 86400 * cst.TAU) % cst.TAU;
         return y;

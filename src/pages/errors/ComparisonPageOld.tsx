@@ -10,18 +10,18 @@ import React, { useEffect, useState } from 'react';
 import { Box, Container, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Link as MUILink } from '@mui/material';
-import { Time } from "../astro/time/time";
-import { VSOP87AEphemeris } from "../astro/ephemeris/vsop87aEphemeris";
-import { MPP02Ephemeris } from "../astro/ephemeris/mpp02Ephemeris";
-import { Pipeline } from '../astro/pipeline';
-import { PosVel } from '../astro/math/posvel';
-import { Vec, VecStats } from '../astro/math/vec';
-import { cst } from '../astro/constants';
-import { GeoLocation, Trajectory } from '../astro/types';
-import { DataPointD3, DataSetD3, GraphD3 } from '../GraphD3';
-import { destructureStarData, StarData } from '../astro/stars';
-import { cartesianFromSpherical, trueMotionSphericalToCartesian } from '../astro/math/mathTools';
-import { applySavitzkyGolayFilter } from '../tools/savitzkyGolayFilter';
+import { Time } from "../../astro/time/time";
+import { VSOP87AEphemeris } from "../../astro/ephemeris/vsop87aEphemeris";
+import { MPP02Ephemeris } from "../../astro/ephemeris/mpp02Ephemeris";
+import { Pipeline } from '../../astro/pipeline';
+import { PosVel } from '../../astro/math/posvel';
+import { Vec, VecStats } from '../../astro/math/vec';
+import { cst } from '../../astro/constants';
+import { GeoLocation, Trajectory } from '../../astro/types';
+import { DataPointD3, DataSetD3, GraphD3 } from '../../GraphD3';
+import { destructureStarData, StarData } from '../../astro/stars';
+import { cartesianFromSpherical, trueMotionSphericalToCartesian } from '../../astro/math/mathTools';
+import { applySavitzkyGolayFilter } from '../../tools/savitzkyGolayFilter';
 
 const YEAR_RANGE = [-2000, 5000];
 const HEADERS = ["JD", "Delta T", "raJ2000", "decJ2000", "raDate", "decDate", "Az", "Alt", "Sidereal time", "HA", "GAST", "lightTime"];
@@ -530,7 +530,7 @@ const StarTest: React.FC<{ vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, ast
     );
 }
 
-const ComparisonPage: React.FC = () => {
+const ComparisonPageOld: React.FC = () => {
     const [vsop87a, setVSOP87A] = useState<VSOP87AEphemeris|null>(null);
     const [mpp02, setMPP02] = useState<MPP02Ephemeris|null>(null);
     const [astro, setAstro] = useState<any>(null);
@@ -607,4 +607,4 @@ const ComparisonPage: React.FC = () => {
     </>)
 }
 
-export { ComparisonPage };
+export { ComparisonPageOld };
