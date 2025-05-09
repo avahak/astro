@@ -1,3 +1,4 @@
+import * as math from "mathjs";
 import pako from 'pako';
 import React, { useEffect, useState } from 'react';
 import { Box } from '@mui/material';
@@ -7,8 +8,22 @@ import { VSOP87AEphemeris } from "../astro/ephemeris/vsop87aEphemeris";
 import { MPP02Ephemeris } from "../astro/ephemeris/mpp02Ephemeris";
 import { applySavitzkyGolayFilter, uniformlySpacedResample } from '../tools/savitzkyGolayFilter';
 import { Vec } from '../astro/math/vec';
-import { DataSet, GraphText } from '../tools/graph/types';
+import { DataSet, GraphText, Point } from '../tools/graph/types';
 import { Graph } from '../tools/graph/Graph';
+import { Time } from '../astro/time/time';
+import { cst } from '../astro/constants';
+import { equationOfTheOrigins } from '../astro/cio/cioLocator';
+import { precessionMatrix } from "../astro/precession";
+import { nutation, nutationMatrix, nutationMatrixFromParameters } from "../astro/nutation";
+
+function adjust(x: number) {
+    x = x % cst.TAU;
+    if (x <= -Math.PI)
+        x += cst.TAU;
+    if (x > Math.PI)
+        x -= cst.TAU;
+    return x;
+}
 
 const TestPage: React.FC = () => {
     const [vsop87a, setVSOP87A] = useState<VSOP87AEphemeris|null>(null);
@@ -142,23 +157,83 @@ const TestPage: React.FC = () => {
     };
 
     const texts: GraphText[] = Array.from({ length: 1000 }).map((_, k) => ({ 
-        p: { x: Vec.randomGaussian(1, 10)[0], y: Vec.randomGaussian(1, 10)[0] },
+        p: { x: 2000+Vec.randomGaussian(1, 2000)[0], y: Vec.randomGaussian(1, 10)[0] },
         size: 1, 
         color: [1, 1, 1], 
         text: `Text_${k}`,
-        visibleScale: Math.exp(Vec.randomGaussian(2, 1)[0]),
+        visibleScaleX: 10+Math.random()*Math.random()*(2000-10),
     }));
+
+    const SCALE = 1 / cst.ARCSEC;
+    const num = 10000;
+    const points0: Point[] = [];
+    const points1: Point[] = [];
+    const points2: Point[] = [];
+    for (let k = 0; k < num; k++) {
+        const t = -50 + 100*k/num;
+        const iJd = Math.floor(t*36525*1.00273781191135448);
+        const time = Time.fromUt1(iJd/36525/1.00273781191135448, astro);
+        const year = 2000 + t*100;
+
+        const nut = nutation(time.jc_tdb);
+        const pMat = precessionMatrix(time.jc_tdb).valueOf() as number[][];
+        const nMat = nutationMatrixFromParameters(...nut);
+        const npMat = math.multiply(nMat, pMat).valueOf() as number[][];
+
+        const gastCIO = time.ERA() - equationOfTheOrigins(time.jc_tdb, npMat);
+
+        points0.push({ x: year, y: SCALE*adjust(time.GAST(nut, 1)-time.GAST(nut, 0)) });
+        points1.push({ x: year, y: SCALE*adjust(time.GAST(nut, 0)-gastCIO) });
+        points2.push({ x: year, y: SCALE*adjust(time.GAST(nut, 1)-gastCIO) });
+    }
+    const dsPoints0: DataSet = {
+        points: points0, 
+        label: 'GAST poly2 - GAST poly1', 
+        scale: 2, 
+        drawPoints: false, 
+        drawLines: true, 
+        color: 'orange', 
+        // groupName: 'Poly-poly',
+    };
+    const dsPoints1: DataSet = {
+        points: points1, 
+        label: 'GAST CIO - GAST poly1', 
+        scale: 3, 
+        drawPoints: false, 
+        drawLines: true, 
+        color: 'white',
+        groupName: 'CIO-poly',
+    };
+    const dsPoints2: DataSet = {
+        points: points2, 
+        label: 'GAST CIO - GAST poly2', 
+        scale: 1, 
+        drawPoints: false, 
+        drawLines: true, 
+        color: 'red',
+        groupName: 'CIO-poly',
+    };
 
     return (<>
         <Box display="flex" flexDirection="column" margin="20px">
             <Graph 
+                data={[dsPoints0, dsPoints1, dsPoints2]} 
+                // texts={texts}
+                width="95%"
+                height="800px" 
+                title={"GAST comparsion"}
+                xLabel="Year"
+                yLabel={"Error in \""}
+                location={{ x: 2000, y: 0, scaleX: 2000, scaleY: 10 }}
+            />
+            {/* <Graph 
                 data={[sPoints, iPoints, sgPoints]} 
                 texts={texts}
                 width="100%"
                 height="600px" 
                 title={"Savitzky-Golay filter"}
                 location={{ x: 10, y: 0, scale: 5 }}
-            />
+            /> */}
             <MUILink component={RouterLink} to="/" variant="body1" color="primary">
                 Back
             </MUILink>

@@ -346,7 +346,7 @@ const MajorBodyTest: React.FC<{ vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris
         // const time = Time.fromUt1((Time.jdFromStringDate(date)-2451545)/36525, astro);
         const observer = { lon: lon*cst.DEG, lat: lat*cst.DEG, h: 0 } as GeoLocation;
         const pipeline = new Pipeline(observer, time, vsop87a, mpp02);
-        const myReduction = pipeline.reduce(BODIES[body][1], true);
+        const myReduction: any = null; // = pipeline.reduce(BODIES[body][1], true).;
 
         gastList.push({ x: jd, y: 2e7*(horizon[10]-myReduction[10]) });
         dtList.push({ x: jd, y: 1e3*(horizon[1]-myReduction[1]) });
@@ -457,7 +457,7 @@ const StarTest: React.FC<{ vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, ast
         const rv = star.RV === null || star.Plx === null ? 0 : star.RV*cst.PC;
         const [p, dp] = trueMotionSphericalToCartesian([star.RA, star.DE], [star.pmRA/Math.cos(star.DE), star.pmDE], r, rv);
         const target: Trajectory = (t: number) => new PosVel(Vec.wSum([p, dp], [1, time.jc_tdb]), dp);
-        const reduction = pipeline.reduce(target, false);
+        const reduction: any = null; // pipeline.reduce(target, false);
 
         const row1: number[] = Vec.scale([rowObj.ra, rowObj.dec, rowObj.ra_date, rowObj.dec_date, rowObj.az, rowObj.alt], cst.DEG);
         const row2: number[] = [star.RA, star.DE, reduction[4], reduction[5], reduction[6], reduction[7]];

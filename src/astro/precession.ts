@@ -228,5 +228,67 @@ function applyTrueMotionSpherical(
     return [rade1, pmRade1, r1, rv1];
 }
 
+
+/**
+ * Precession matrix from Owen (1990) with coefficients only for -40<=t<=40.
+ * 
+ * Source: Owen, W. M., Jr., "A Theory of the Earth's Precession Relative to the Invariable 
+ * Plane of the Solar System", PhD Dissertation, University of Florida, 1990, p. 245.
+ */
+function precessionMatrixOwen(t: number) {
+    // const DELTA_COEFFS = [0, 5116.1809, 2.92466, -0.005636];
+    const DELTA_COEFFS = [
+        -1.7997745475347533e-14, 
+        5116.1890147545821, 
+        2.9247603504428157, 
+        -5.6326196820531548e-3, 
+        -9.2226948745981497e-5, 
+        -2.4515708859606546e-8, 
+        2.3106548406850795e-9, 
+        8.8345579649427775e-12, 
+        -4.3285606007994351e-14, 
+        -3.7244008535888019e-16
+    ];
+
+    const I0 = 23*3600 + 0*60 + 31.997;
+    // const I_COEFFS = [I0, -134.6685, 0.49754, 0.006173];
+    const I_COEFFS = [
+        82831.996999999998, 
+        -134.66870936181825, 
+        4.9758299780304608e-1, 
+        6.1705421597441326e-3, 
+        -1.8571794327493753e-5, 
+        -1.2930540672120392e-7, 
+        1.2596797631849006e-10, 
+        2.7747885594664064e-12, 
+        5.2707950955197274e-15, 
+        -4.8760926987798460e-17
+    ];
+
+    const L0 = 3*3600 + 51*60 + 9.262;
+    // const L_COEFFS = [L0, -96.7230, -1.94824, 0.006539];
+    const L_COEFFS = [
+        13869.262000000001, 
+        -96.731815116024752, 
+        -1.9475397995104050, 
+        6.6275370677766483e-3, 
+        7.1172391138639654e-5, 
+        -1.7199898887319890e-8, 
+        -2.1533502066675072e-9, 
+        -7.1770963974344956e-12, 
+        4.5035949742291784e-14, 
+        3.2314957519653324e-16
+    ];
+
+    return math.multiply(
+        Vec.rotationMatrix(2, evaluatePolynomial(L_COEFFS, t)*cst.ARCSEC),
+        Vec.rotationMatrix(0, evaluatePolynomial(I_COEFFS, t)*cst.ARCSEC),
+        Vec.rotationMatrix(2, evaluatePolynomial(DELTA_COEFFS, t)*cst.ARCSEC),
+        Vec.rotationMatrix(0, -I0*cst.ARCSEC),
+        Vec.rotationMatrix(2, -L0*cst.ARCSEC),
+    ).valueOf() as number[][];
+}
+
+
 export { eclipticPole, equatorPole, precessionMatrix,
-    precessPa, applyTrueMotionCartesian, applyTrueMotionSpherical };
+    precessPa, applyTrueMotionCartesian, applyTrueMotionSpherical, precessionMatrixOwen };

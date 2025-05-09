@@ -188,4 +188,5 @@ function nutationMatrix(t: number, method: "IAU2000B"|"basic"="IAU2000B"): numbe
     return nutationMatrixFromParameters(...nutation(t, method));
 }
 
+
 export { nutation, nutationMatrix, nutationMatrixFromParameters };

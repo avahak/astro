@@ -6,10 +6,11 @@
  * https://ssd.jpl.nasa.gov/horizons/manual.html
  */
 import pako from 'pako';
+import Tex2SVG from "react-hook-mathjax";
 import React, { useEffect, useState } from 'react';
 import { MPP02Ephemeris } from '../../astro/ephemeris/mpp02Ephemeris';
 import { VSOP87AEphemeris } from '../../astro/ephemeris/vsop87aEphemeris';
-import { Box, Container, Typography } from '@mui/material';
+import { Box, Container, List, ListItem, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { Link as MUILink } from '@mui/material';
 import { Time } from '../../astro/time/time';
@@ -30,7 +31,7 @@ const HA = Math.PI / 12;
 /**
  * Computes positions for stars to compare with AstroPy reference data.
  */
-function compareStarPositions(vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, astro: any, horizons: any, astropyStars: any) {
+function compareStarPositions(vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, astro: any, horizons: any, astropyStars: any, mode: "0"|"1"|"CIO") {
     const results: ComparsionResult[] = [];
 
     const astroStarMap = new Map<number, StarData>();
@@ -54,23 +55,24 @@ function compareStarPositions(vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, 
 
         const time = Time.fromUt1((rowObj.jd_ut1-2451545)/36525, astro);
         const observer = { lon: rowObj.lon*cst.DEG, lat: rowObj.lat*cst.DEG, h: rowObj.h*cst.KM } as GeoLocation;
-        const pipeline = new Pipeline(observer, time, vsop87a, mpp02);
+        const pipeline = new Pipeline(observer, time, vsop87a, mpp02, mode == "0" ? 0 : 1);
 
         const r = star.Plx === null ? 1000*cst.PC : cst.PC/star.Plx;
         const rv = star.RV === null || star.Plx === null ? 0 : star.RV*cst.PC;
         const [p, dp] = trueMotionSphericalToCartesian([star.RA, star.DE], [star.pmRA/Math.cos(star.DE), star.pmDE], r, rv);
         const target: Trajectory = (t: number) => new PosVel(Vec.wSum([p, dp], [1, time.jc_tdb]), dp);
-        const reduction = pipeline.reduce(target, false);
+        const reduction = (mode == "CIO") ? 
+            pipeline.transformWithCIO(target, false) : pipeline.transformWithTETE(target, false);
 
-        const vRef = cartesianFromSpherical(1, rowObj.alt*cst.DEG, rowObj.az*cst.DEG);
-        const vReduction = cartesianFromSpherical(1, reduction[7], reduction[6]);
+        const vRef = cartesianFromSpherical(1, rowObj.alt*cst.DEG, Math.PI/2-rowObj.az*cst.DEG);
+        const vReduction = Vec.normalize(reduction.apparentPosTopocentric);
 
         if (jd < Time.jdFromGregorian(YEAR_RANGE[0], 1, 1) || jd > Time.jdFromGregorian(YEAR_RANGE[1], 1, 1))
             continue;
 
         results.push({
             t: time.jc_tdb,
-            obj: `Star`,
+            obj: `Stars_${mode}`,
             angle: 2*Math.asin(Vec.distance(vRef, vReduction)/2),
             p: vReduction,
             pRef: vRef,
@@ -85,7 +87,7 @@ function compareStarPositions(vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, 
 /**
  * Computes positions for planets to compare with JPL Horizons reference data.
  */
-function comparePlanetPositions(vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, astro: any, horizons: any, astropyStars: any) {
+function comparePlanetPositions(vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, astro: any, horizons: any, astropyStars: any, mode: "0"|"1"|"CIO") {
     const results: ComparsionResult[] = [];
 
     const c = 1 / (cst.MASS_RATIO_EARTH_MOON + 1);
@@ -124,15 +126,20 @@ function comparePlanetPositions(vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris
         // yet, so the closest known leap-second correction is used over future time-spans.""
         const time = Time.fromUt((Time.jdFromStringDate(date)-2451545)/36525, astro);
         const observer = { lon: lon*cst.DEG, lat: lat*cst.DEG, h: 0 } as GeoLocation;
-        const pipeline = new Pipeline(observer, time, vsop87a, mpp02);
-        const reduction = pipeline.reduce(BODIES[body][1], true);
+        const pipeline = new Pipeline(observer, time, vsop87a, mpp02, mode == "0" ? 0 : 1);
+        const reduction = (mode == "CIO") ? 
+            pipeline.transformWithCIO(BODIES[body][1], true) : pipeline.transformWithTETE(BODIES[body][1], true);
 
-        const vRef = cartesianFromSpherical(1, alt*cst.DEG, az*cst.DEG);
-        const vReduction = cartesianFromSpherical(1, reduction[7], reduction[6]);
+        const vRef = cartesianFromSpherical(1, alt*cst.DEG, Math.PI/2-az*cst.DEG);
+        const vReduction = Vec.normalize(reduction.apparentPosTopocentric);
+        // const vRef = cartesianFromSpherical(1, decDate*cst.DEG, raDate*cst.DEG);
+        // const vReduction = cartesianFromSpherical(1, reduction[5], reduction[4]);
+        // const vRef = cartesianFromSpherical(1, decJ2000*cst.DEG, raJ2000*cst.DEG);
+        // const vReduction = cartesianFromSpherical(1, reduction[3], reduction[2]);
 
         results.push({
             t: time.jc_tdb,
-            obj: BODIES[body][0],
+            obj: `${BODIES[body][0]}_${mode}`,
             angle: 2*Math.asin(Vec.distance(vRef, vReduction)/2),
             p: vReduction,
             pRef: vRef,
@@ -198,7 +205,7 @@ const ComparisonPage: React.FC = () => {
         loadData('ephemeris/horizons_reference.json', processHorizons, controller);
 
         const processAstropyStars = (data: any) => setAstropyStars(data);
-        loadData('ephemeris/astropy_star_reference.json', processAstropyStars, controller);
+        loadData('ephemeris/astropy_star_reference_poles.json', processAstropyStars, controller);
         
         return () => {
             controller.abort();
@@ -213,10 +220,14 @@ const ComparisonPage: React.FC = () => {
         console.log('horizons', horizons);
         console.log('astropyStars', astropyStars);
 
-        const cStars = compareStarPositions(vsop87a, mpp02, astro, horizons, astropyStars);
-        const cPlanets = comparePlanetPositions(vsop87a, mpp02, astro, horizons, astropyStars);
+        const cStars0 = compareStarPositions(vsop87a, mpp02, astro, horizons, astropyStars, "0");
+        const cStars1 = compareStarPositions(vsop87a, mpp02, astro, horizons, astropyStars, "1");
+        const cStarsCIO = compareStarPositions(vsop87a, mpp02, astro, horizons, astropyStars, "CIO");
+        const cPlanets0 = comparePlanetPositions(vsop87a, mpp02, astro, horizons, astropyStars, "0");
+        const cPlanets1 = comparePlanetPositions(vsop87a, mpp02, astro, horizons, astropyStars, "1");
+        const cPlanetsCIO = comparePlanetPositions(vsop87a, mpp02, astro, horizons, astropyStars, "CIO");
 
-        const allCr = [...cStars, ...cPlanets];
+        const allCr = [...cStars0, ...cPlanets0, ...cStars1, ...cPlanets1, ...cStarsCIO, ...cPlanetsCIO];
 
         const cMap: Map<string, ComparsionResult[]> = new Map();
         for (const cr of allCr) {
@@ -238,6 +249,16 @@ const ComparisonPage: React.FC = () => {
             <Box display="flex" flexDirection="column">
                 <Box>
                     <Errors results={results} />
+                </Box>
+                <Box>
+                    <List sx={{ listStyleType: 'disc', pl: 4 }}>
+                        <ListItem sx={{ display: 'list-item' }}>
+                            JPL Horizons uses precession model by Owen (1990) for non-modern dates. 
+                            Owen uses numerical integration and Chebyshev polynomials fitted in 8000-year intervals.
+                            JPL Horizons also uses 
+                            <Tex2SVG latex="\rm{GMST} = 67310.548 + (3155760000 + 8640184.812866)T_u + 0.093104\,T_u^2 - 6.2\cdot 10^{-6}\,T_u^3." />
+                        </ListItem>
+                    </List>
                 </Box>
                 <Box>
                     <MUILink component={RouterLink} to="/" variant="body1" color="primary">

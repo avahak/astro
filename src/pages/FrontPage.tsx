@@ -37,10 +37,6 @@ const FrontPage = () => {
                 Helpers (ignore these)
             </Typography>
             <Box sx={{p: 2}}>
-                <MUILink component={RouterLink} to="/comparison_old" variant="body1" color="primary">
-                    Comparison (old)
-                </MUILink>
-                <br />
                 <MUILink component={RouterLink} to="/comparison" variant="body1" color="primary">
                     Comparison
                 </MUILink>

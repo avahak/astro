@@ -2,7 +2,7 @@ import * as math from "mathjs";
 import { MPP02Ephemeris } from "./ephemeris/mpp02Ephemeris";
 import { VSOP87AEphemeris } from "./ephemeris/vsop87aEphemeris";
 import { nutation, nutationMatrix, nutationMatrixFromParameters } from "./nutation";
-import { precessionMatrix } from "./precession";
+import { precessionMatrix, precessionMatrixOwen } from "./precession";
 import { Snapshot } from "./snapshot";
 import { Time } from "./time/time";
 import { ENUBasis, GeoLocation, Trajectory } from "./types";
@@ -10,6 +10,7 @@ import { PosVel } from "./math/posvel";
 import { cst } from "./constants";
 import { Vec } from "./math/vec";
 import { oplus } from "./math/mathTools";
+import { cioMatrix } from "./cio/cioLocator";
 
 /**
  * Pipeline for computing apparent place for stars and other bodies.
@@ -18,11 +19,17 @@ class Pipeline {
     snapshot: Snapshot;
     vsop87a: VSOP87AEphemeris;
     mpp02: MPP02Ephemeris;
+    teteInitialized: boolean;
+    cioInitialized: boolean;
+    gmstFormula: 0|1;
 
-    constructor(observer: GeoLocation, time: Time, vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris) {
+    constructor(observer: GeoLocation, time: Time, vsop87a: VSOP87AEphemeris, mpp02: MPP02Ephemeris, gmstFormula: 0|1=0) {
         this.snapshot = new Snapshot(time, observer);
         this.vsop87a = vsop87a;
         this.mpp02 = mpp02;
+        this.gmstFormula = gmstFormula;
+        this.teteInitialized = false;
+        this.cioInitialized = false;
 
         this.init();
     }
@@ -38,81 +45,149 @@ class Pipeline {
         this.snapshot.storeOnce('Moon', PosVel.wSum([emb, vEarthMoon], [1, 1-c]));
 
         const pMat = this.snapshot.storeOnce('pMat', precessionMatrix(this.snapshot.time.jc_tdb));
+        // const pMat = this.snapshot.storeOnce('pMat', precessionMatrixOwen(this.snapshot.time.jc_tdb));
         const nut = this.snapshot.storeOnce('nut', nutation(this.snapshot.time.jc_tdb));
         const nMat = this.snapshot.storeOnce('nMat', nutationMatrixFromParameters(...nut));
         const npMat = math.multiply(nMat, pMat).valueOf() as number[][];
         this.snapshot.storeOnce('npMat', npMat);
-        const npMatT = this.snapshot.storeOnce('npMatT', math.transpose(npMat)); // =inverse
-
-        const gast = this.snapshot.storeOnce('gast', this.snapshot.time.GAST(nut));
-        const observerGeocentric = Pipeline.geocentricCoordinates(this.snapshot.observer, gast);
-        const observerGCRF = PosVel.applyMatrix(npMatT, observerGeocentric);
-        this.snapshot.storeOnce('observerICRF', PosVel.add(earth, observerGCRF));
-
-        const enu = Pipeline.computeENUBasis(this.snapshot.observer, gast);
-        this.snapshot.storeOnce('enu', enu);
     }
-    
-    reduce(target: Trajectory, useLightAdjust: boolean) {
+
+    private initCIO() {
         const npMat = this.snapshot.get<number[][]>('npMat')!;
-        const enu = this.snapshot.get<ENUBasis>('enu')!;
+        const earth = this.snapshot.get<PosVel>('Earth')!;
+
+        const era = this.snapshot.time.ERA();
+
+        const cioMat = cioMatrix(this.snapshot.time.jc_tdb, npMat[2][0], npMat[2][1]);
+        this.snapshot.storeOnce('cioMat', cioMat);
+
+        const observerCIRF = Pipeline.rotateFromITRF(this.snapshot.observer, era);
+        const observerGCRF = PosVel.applyMatrix(math.transpose(cioMat), observerCIRF);
+        const observerICRF = PosVel.add(earth, observerGCRF);
+        this.snapshot.storeOnce('observerICRF', observerICRF);
+
+        this.snapshot.storeOnce('enuCIRF', Pipeline.computeENUBasis(
+                this.snapshot.observer.lat, this.snapshot.observer.lon + era));
+
+        this.cioInitialized = true;
+    }
+
+    private initTETE() {
+        const npMatT = math.transpose(this.snapshot.get<number[][]>('npMat')!);
+        const nut = this.snapshot.get<[number, number, number]>('nut')!;
+        const earth = this.snapshot.get<PosVel>('Earth')!;
+
+        const gast = this.snapshot.storeOnce('gast', this.snapshot.time.GAST(nut, this.gmstFormula));
+
+        const observerTETE = Pipeline.rotateFromITRF(this.snapshot.observer, gast);
+        const observerGCRF = PosVel.applyMatrix(npMatT, observerTETE);
+        const observerICRF = PosVel.add(earth, observerGCRF);
+        this.snapshot.storeOnce('observerICRF', observerICRF);
+
+        this.snapshot.storeOnce('enuTETE', Pipeline.computeENUBasis(
+            this.snapshot.observer.lat, this.snapshot.observer.lon + gast));
+
+        this.teteInitialized = true;
+    }
+
+    /**
+     * Computes apparent topocentric position of the target using CIO-based transformation.
+     */
+    transformWithCIO(target: Trajectory, applyLightTimeCorrection: boolean) {
+        if (!this.cioInitialized)
+            this.initCIO();
+
+        const cioMat = this.snapshot.get<number[][]>('cioMat')!;
+        const enuCIRF = this.snapshot.get<ENUBasis>('enuCIRF')!;
         const observerICRF = this.snapshot.get<PosVel>('observerICRF')!;
-        const gast = this.snapshot.get<number>('gast')!;
 
         // Light-time corrected target position
-        const lightTimeIters = useLightAdjust ? 1 : 0;
         const [lightTargetICRF, lightTime] = Pipeline.lightAdjust(
             observerICRF.pos, 
             target, 
             this.snapshot.time.jc_tdb, 
-            lightTimeIters
+            applyLightTimeCorrection ? 1 : 0
         );
 
+        // All directions below are from observer to target
         // Aberration (annual + diurnal)
-        // All directions below are from observer -> target
-        const dirICRF = Vec.normalize(
-            Vec.sub(lightTargetICRF.pos, observerICRF.pos),
-            cst.C
-        );
-        const apparentDirICRF = oplus(observerICRF.vel, dirICRF);
-        // Using -oplus(-v,-w) = oplus(v,w) here to avoid explicit negation of velocities
+        const posICRF = Vec.sub(lightTargetICRF.pos, observerICRF.pos);
+        const apparentDirICRF = oplus(observerICRF.vel, Vec.normalize(posICRF, cst.C));
+        // Above we used -oplus(-v,-w) = oplus(v,w) to avoid explicit negation of velocities
+        const apparentPosICRF = Vec.normalize(apparentDirICRF, 
+            (applyLightTimeCorrection && lightTime > 0) ? lightTime*cst.C : Vec.norm(posICRF));
 
-        // Precession and nutation
-        const apparentDirEquatorial = Vec.applyMatrix(npMat, apparentDirICRF);
+        const apparentPosCIRF = Vec.applyMatrix(cioMat, apparentPosICRF);
 
-        const apparentDirENU = [
-            Vec.dot(apparentDirEquatorial, enu.e), 
-            Vec.dot(apparentDirEquatorial, enu.n), 
-            Vec.dot(apparentDirEquatorial, enu.u)
+        const apparentPosTopocentric = [
+            Vec.dot(apparentPosCIRF, enuCIRF.e), 
+            Vec.dot(apparentPosCIRF, enuCIRF.n), 
+            Vec.dot(apparentPosCIRF, enuCIRF.u)
         ];
-        // In reference data only light-time adjustment is done
-        let [raGCRS, decGCRS] = Pipeline.sphericalFromCartesian(dirICRF);
-        const [raDate, decDate] = Pipeline.sphericalFromCartesian(apparentDirEquatorial);
-        const [az, alt] = Pipeline.sphericalFromCartesian(apparentDirENU);
 
-        return [this.snapshot.time.jc_ut1*36525+2451545, this.snapshot.time.deltaT*36525*24*3600, raGCRS, decGCRS, raDate, decDate, (cst.TAU+Math.PI/2-az) % cst.TAU, alt, ((gast+this.snapshot.observer.lon) % cst.TAU + cst.TAU) % cst.TAU, ((gast+this.snapshot.observer.lon-raDate) % cst.TAU + cst.TAU) % cst.TAU, (gast+cst.TAU)%cst.TAU, lightTime*36525*24*60*60];
-        // return [this.snapshot.time.jc_ut1*36525+2451545, this.snapshot.time.deltaT*36525*24*3600, raGCRS, decGCRS, raDate, decDate, (cst.TAU+Math.PI/2-az) % cst.TAU, alt, ((gast+this.snapshot.observer.lon) % cst.TAU + cst.TAU) % cst.TAU, ((gast+this.snapshot.observer.lon-raDate) % cst.TAU + cst.TAU) % cst.TAU, (this.snapshot.time._GAST())%cst.TAU];
+        return {
+            posICRF: posICRF,
+            // apparentPosTETE: Vec.applyMatrix(this.snapshot.get<number[][]>('npMat')!, apparentPosICRF),
+            apparentPosCIRF: apparentPosCIRF,
+            apparentPosTopocentric: apparentPosTopocentric,
+            lightTime: lightTime
+        };
     }
+    
+    /**
+     * Computes apparent topocentric position of the target using equinox-based transformation.
+     */
+    transformWithTETE(target: Trajectory, applyLightTimeCorrection: boolean) {
+        if (!this.teteInitialized)
+            this.initTETE();
 
-    static sphericalFromCartesian(v: number[]) {
-        const r = Vec.norm(v);
-        const rxy = Math.hypot(v[0], v[1]);
-        const az = Math.atan2(v[1], v[0]);
-        const alt = Math.atan2(v[2], rxy);
-        return [az < 0 ? az+cst.TAU : az, alt, r];
+        const npMat = this.snapshot.get<number[][]>('npMat')!;
+        const enuTETE = this.snapshot.get<ENUBasis>('enuTETE')!;
+        const observerICRF = this.snapshot.get<PosVel>('observerICRF')!;
+
+        // Light-time corrected target position
+        const [lightTargetICRF, lightTime] = Pipeline.lightAdjust(
+            observerICRF.pos, 
+            target, 
+            this.snapshot.time.jc_tdb, 
+            applyLightTimeCorrection ? 1 : 0
+        );
+
+        // All directions below are from observer to target
+        // Aberration (annual + diurnal)
+        const posICRF = Vec.sub(lightTargetICRF.pos, observerICRF.pos);
+        const apparentDirICRF = oplus(observerICRF.vel, Vec.normalize(posICRF, cst.C));
+        // Above we used -oplus(-v,-w) = oplus(v,w) to avoid explicit negation of velocities
+        const apparentPosICRF = Vec.normalize(apparentDirICRF, 
+            (applyLightTimeCorrection && lightTime > 0) ? lightTime*cst.C : Vec.norm(posICRF));
+
+        const apparentPosTETE = Vec.applyMatrix(npMat, apparentPosICRF);
+
+        const apparentPosTopocentric = [
+            Vec.dot(apparentPosTETE, enuTETE.e), 
+            Vec.dot(apparentPosTETE, enuTETE.n), 
+            Vec.dot(apparentPosTETE, enuTETE.u)
+        ];
+
+        return {
+            posICRF: posICRF,
+            apparentPosTETE: apparentPosTETE,
+            // apparentPosCIRF: Vec.applyMatrix(this.snapshot.get<number[][]>('cioMat')!, apparentPosICRF),
+            apparentPosTopocentric: apparentPosTopocentric,
+            lightTime: lightTime
+        };
     }
 
     /**
-     * Computes the ENU (East-North-Up) basis vectors in the true equator/equinox of date frame.
+     * Computes the ENU (East-North-Up) basis vectors at given location.
      * 
      * Sources:
      * https://gssc.esa.int/navipedia/index.php/Transformations_between_ECEF_and_ENU_coordinates
      * https://en.wikipedia.org/wiki/Geographic_coordinate_conversion#From_ECEF_to_ENU
      */
-    static computeENUBasis(geo: GeoLocation, gast: number): ENUBasis {
-        const last = gast + geo.lon;
-        const [cl, sl] = [Math.cos(geo.lat), Math.sin(geo.lat)];
-        const [ch, sh] = [Math.cos(last), Math.sin(last)];
+    static computeENUBasis(lat: number, lon: number): ENUBasis {
+        const [cl, sl] = [Math.cos(lat), Math.sin(lat)];
+        const [ch, sh] = [Math.cos(lon), Math.sin(lon)];
 
         // Up: Geodetic normal vector (points from Earth's center to observer)
         // East: Tangent to the local latitude circle (perpendicular to Earth's pole)
@@ -127,14 +202,15 @@ class Pipeline {
     }
 
     /**
-     * Returns observer coordinates in the true equator/equinox of date frame.
+     * Transforms a GeoLocation in ITRF to 
+     * 1) TETE if GAST is used as rotationAngle, or
+     * 2) CIRF if ERA is used as rotationAngle.
      */
-    static geocentricCoordinates(geo: GeoLocation, gast: number): PosVel {
+    static rotateFromITRF(geo: GeoLocation, rotationAngle: number): PosVel {
         const pos = Pipeline.rectangularFromGeodetic(geo);
-        const dGast = 1.00273781191135448*36525*cst.TAU;    // ignoring tiny terms here
-        // const dGast = 1.00273781191135448*cst.TAU/(24*3600*cst.S);
-        const rPos = Vec.zRotate(pos, gast);
-        return new PosVel(rPos, [-dGast*rPos[1], dGast*rPos[0], 0]);
+        const dRot = 1.00273781191135448*36525*cst.TAU;    // approximation in case of TETE
+        const rPos = Vec.zRotate(pos, rotationAngle);
+        return new PosVel(rPos, [-dRot*rPos[1], dRot*rPos[0], 0]);
     }
 
     /**
@@ -171,6 +247,7 @@ class Pipeline {
      *      t_{k+1} = t_k - g(t_k)/g'(t_k)
      *      t_{k+1} = t_k - (C*(t_k-t0) + |S(t_k)|)) / (C + <S(t_k),S'(t_k)>/|S(t_k)|).
      * ```
+     * @returns `[p, s]` where p is light-adjusted target pos and s is light-time
      */
     static lightAdjust(origin: number[], target: Trajectory, t0: number, iterNum: number=1): [PosVel, number] {
         let t = t0;

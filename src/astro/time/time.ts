@@ -5,7 +5,8 @@
 
 import { cst } from "../constants";
 import { evaluatePolynomial } from "../math/mathTools";
-import { precessionMatrix } from "../precession";
+import { Vec } from "../math/vec";
+import { eclipticPole, equatorPole, precessionMatrix } from "../precession";
 import { approximateDeltaT } from "./deltaT";
 
 const JD_J2000 = 2451545;
@@ -127,7 +128,7 @@ class Time {
      * 
      * Source: IAUCircular179.pdf p16
      */
-    _ERA(): number {
+    ERA(): number {
         const s = (0.7790572732640 + 1.00273781191135448*this.jc_ut1*36525) % 1;
         return cst.TAU*s;
     }
@@ -135,18 +136,19 @@ class Time {
     /**
      * Greenwich mean sidereal time is the hour angle 
      * of the vernal equinox measured from the prime meridian at Greenwich.
+     * This is IAU 2006 formula.
      * 
      * Source: IAUCircular179.pdf p. 16
      */
     GMST(): number {
-        const gmstCoeffs = [0.014506, 4612.156534, 1.3915817, -0.00000044, -0.000029956, -0.0000000368];
+        const gmstCoeffs = [0.014506, 4612.156534, 1.3915817, -0.000_000_44, -0.000_029956, -0.000_000_0368];
+        // const gmstCoeffs = [0.014506, 4612.156534, 1.3915817];
         const gmstPart = evaluatePolynomial(gmstCoeffs, this.jc_tdb);
-        return (this._ERA() + cst.TAU*gmstPart/15/86400) % cst.TAU;
+        return (this.ERA() + cst.TAU*gmstPart/15/86400) % cst.TAU;
     }
 
     /**
-     * Greenwich mean sidereal time is the hour angle 
-     * of the vernal equinox measured from the prime meridian at Greenwich.
+     * GMST formula, IAU 1982 model.
      * 
      * Source: https://ssd.jpl.nasa.gov/horizons/manual.html (Greenwich Mean Sidereal Time)
      */
@@ -162,12 +164,12 @@ class Time {
      * 
      * Source: IAUCircular179.pdf p. 17, omitted small terms
      */
-    GAST(nutation: [number, number, number]): number {
+    GAST(nutation: [number, number, number], gmstFormula: number=0): number {
         const coeffs = [450160.398036, -6962890.5431, 7.4722, 0.007702, -0.00005939];
         const om = evaluatePolynomial(coeffs, this.jc_tdb);
         const x = nutation[2]*Math.cos(nutation[0]);
         const y = cst.TAU/86400*(0.00264096*Math.sin(om) + 0.00006352*Math.sin(2*om));
-        return this.GMST() + x + y;
+        return (gmstFormula === 1 ? this._GMST() : this.GMST()) + x + y;
     }
 
     /**
