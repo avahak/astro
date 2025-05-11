@@ -156,9 +156,11 @@ function cioLocator(t: number, x: number, y: number): number {
  * 
  * See: IAUCircular179.pdf, p. 64.
  */
-function cioMatrix(t: number, x: number, y: number): number[][] {
+function cioMatrix(t: number, npMat: number[][]): number[][] {
+    const x = npMat[2][0];
+    const y = npMat[2][1];
+    const z = npMat[2][2]; // = Math.sqrt(1 - x*x - y*y);
     const s = cioLocator(t, x, y);
-    const z = Math.sqrt(1 - x*x - y*y);
     const b = 1 / (1 + z);
     const m: number[][] = [
         [1-b*x*x, -b*x*y, x],

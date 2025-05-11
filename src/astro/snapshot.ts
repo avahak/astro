@@ -18,21 +18,21 @@ class Snapshot {
     }
 
     /**
-     * Stores a value, evaluating functions only if specified
+     * Sets a value, or a function call computing the value
      */
-    store<T>(key: any, value: T | (() => T), allowFunctionCall: boolean=true): T {
-        const storedValue = (allowFunctionCall && typeof value === 'function') ? (value as (() => T))() : (value as T);
+    set<T>(key: any, value: T | (() => T)): T {
+        const storedValue = (typeof value === 'function') ? (value as (() => T))() : (value as T);
         this.state.set(key, storedValue);
         return storedValue;
     }
 
     /**
-     * Stores a value only if the key doesn't exist, evaluating functions only if specified
+     * Sets a value only if the key doesn't exist
      */
-    storeOnce<T>(key: unknown, value: T | (() => T), allowFunctionCall: boolean=true): T {
+    setOnce<T>(key: unknown, value: T | (() => T)): T {
         if (this.state.has(key))
             return this.state.get(key);
-        return this.store(key, value, allowFunctionCall);
+        return this.set(key, value);
     }
 
     /**

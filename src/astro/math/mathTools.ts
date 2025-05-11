@@ -2,6 +2,7 @@
  * Helper math functions.
  */
 import { cst } from '../constants';
+import { ENUBasis, GeoLocation } from '../types';
 import { Vec } from './vec';
 
 /**
@@ -26,6 +27,57 @@ function oplus(v: number[], w: number[]): number[] {
     const cv = Vec.scale(v, c2 + c2*vw/(c1+1));
     return Vec.add(cw, cv);
 }
+
+/**
+ * Computes the ENU (East-North-Up) basis vectors at given location.
+ * 
+ * Sources:
+ * https://gssc.esa.int/navipedia/index.php/Transformations_between_ECEF_and_ENU_coordinates
+ * https://en.wikipedia.org/wiki/Geographic_coordinate_conversion#From_ECEF_to_ENU
+ */
+function enuBasisFromSpherical(alt: number, az: number): ENUBasis {
+    const [cl, sl] = [Math.cos(alt), Math.sin(alt)];
+    const [ch, sh] = [Math.cos(az), Math.sin(az)];
+
+    // Up: Geodetic normal vector (points from Earth's center to observer)
+    // East: Tangent to the local latitude circle (perpendicular to Earth's pole)
+    // North: n=u\times e, ensures right-handed system
+    // Derivation: take cartesian position written using spherical coordinates 
+    // and differentiate w.r.t. each spherical coordinate and normalize.
+    const e = [-sh, ch, 0];
+    const n = [-sl*ch, -sl*sh, cl];
+    const u = [cl*ch, cl*sh, sl];
+
+    return { 'e': e, 'n': n, 'u': u };
+}
+
+/**
+ * Returns east, north, up (ENU) tangent plane orthonormal 
+ * basis at p on the sphere of radius |p|
+ */
+function enuBasisFromCartesian(p: number[]): ENUBasis {
+    const u = Vec.normalize(p);
+    const e = Vec.normalize(Vec.cross([0, 0, 1], u));
+    const n = Vec.cross(u, e);
+    return { e, n, u };
+}
+
+/**
+ * Returns geocentric rectangular coordinates from geodetic coordinates.
+ * 
+ * Source: IAUCircular179.pdf, p.63
+ */
+function rectangularFromGeodetic(geo: GeoLocation): number[] {
+    const f = cst.RADIUS_EARTH_F;
+    const s = (1-f)**2;
+    const c = 1 / Math.sqrt(Math.cos(geo.lat)**2 + s*Math.sin(geo.lat)**2);
+    return [
+        (cst.RADIUS_EARTH_E*c + geo.h)*Math.cos(geo.lat)*Math.cos(geo.lon),
+        (cst.RADIUS_EARTH_E*c + geo.h)*Math.cos(geo.lat)*Math.sin(geo.lon),
+        (cst.RADIUS_EARTH_E*s*c + geo.h)*Math.sin(geo.lat)
+    ];
+}
+
 
 function clamp(x: number, xMin: number, xMax: number) {
     return Math.max(xMin, Math.min(x, xMax));
@@ -56,16 +108,6 @@ function sphericalFromCartesian(x: number, y: number, z: number): number[] {
     return [r, theta, phi];
 }
 
-/**
- * Returns east, north, up (ENU) tangent plane orthonormal 
- * basis at p on the sphere of radius |p|
- */
-function sphereTangentPlaneBasisENU(p: number[]): [number[], number[], number[]] {
-    const uUp = Vec.normalize(p);
-    const uEast = Vec.normalize(Vec.cross([0, 0, 1], uUp));
-    const uNorth = Vec.cross(uUp, uEast);
-    return [uEast, uNorth, uUp];
-}
 
 /**
  * Given RA, DE, proper motion, distance, radial velocity for a star, 
@@ -103,13 +145,13 @@ function trueMotionCartesianToSpherical(
     dp: number[]
 ): [number[], number[], number, number] {
     const [r, theta, phi] = sphericalFromCartesian(p[0], p[1], p[2]);
-    const [uEast, uNorth, uUp] = sphereTangentPlaneBasisENU(p);
-    const rv = Vec.dot(dp, uUp);
-    const pmRade = [Vec.dot(dp, uEast)/Math.cos(theta), Vec.dot(dp, uNorth)/r];
+    const enu = enuBasisFromCartesian(p);
+    const rv = Vec.dot(dp, enu.u);
+    const pmRade = [Vec.dot(dp, enu.e)/Math.cos(theta), Vec.dot(dp, enu.n)/r];
     const rade = [phi, theta];
     return [rade, pmRade, r, rv];
 }
 
-export { oplus, clamp, evaluatePolynomial, 
-    cartesianFromSpherical, sphericalFromCartesian, sphereTangentPlaneBasisENU, 
+export { oplus, clamp, evaluatePolynomial, enuBasisFromCartesian, enuBasisFromSpherical,
+    cartesianFromSpherical, sphericalFromCartesian, rectangularFromGeodetic,
     trueMotionSphericalToCartesian, trueMotionCartesianToSpherical };

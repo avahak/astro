@@ -178,10 +178,10 @@ class Time {
      * Sources: Astronomical Algorithms (Meeus), p. 63.
      * @param jd Julian day has to be > -68569.5.
      */
-    static gregorianFromJd(julian_day: number) {
-        julian_day += 0.5;
-        const z = Math.floor(julian_day);
-        const f = julian_day - z;
+    static gregorianFromJd(jd: number) {
+        jd += 0.5;
+        const z = Math.floor(jd);
+        const f = jd - z;
         const alpha = Math.floor((z - 1_867_216.25) / 36524.25);
         const a = z < 2_299_161 ? z : z + 1 + alpha - Math.floor(alpha/4);
         const b = a + 1524;

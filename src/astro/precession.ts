@@ -7,7 +7,7 @@
 
 import * as math from "mathjs";
 import { cst } from "./constants";
-import { cartesianFromSpherical, evaluatePolynomial, sphereTangentPlaneBasisENU, trueMotionCartesianToSpherical, trueMotionSphericalToCartesian } from "./math/mathTools";
+import { cartesianFromSpherical, enuBasisFromCartesian, evaluatePolynomial, trueMotionCartesianToSpherical, trueMotionSphericalToCartesian } from "./math/mathTools";
 import { Vec } from "./math/vec";
 
 // Axial tilt at J2000.0
@@ -147,12 +147,12 @@ function _intervalPrecessionMatrix(t0: number, t1: number): number[][] {
  */
 function precessPa(precessionMatrix: number[][], rade: [number, number], pa: number): number {
     const p = cartesianFromSpherical(1, rade[1], rade[0]);
-    const [uEast, uNorth] = sphereTangentPlaneBasisENU(p);
-    const dp = Vec.wSum([uNorth, uEast], [Math.cos(pa), Math.sin(pa)]);
+    const enu = enuBasisFromCartesian(p);
+    const dp = Vec.wSum([enu.n, enu.e], [Math.cos(pa), Math.sin(pa)]);
     const p1 = Vec.applyMatrix(precessionMatrix, p);
     const dp1 = Vec.applyMatrix(precessionMatrix, dp);
-    const [uEast1, uNorth1] = sphereTangentPlaneBasisENU(p1);
-    return Math.atan2(Vec.dot(dp1, uEast1), Vec.dot(dp1, uNorth1));
+    const enu1 = enuBasisFromCartesian(p1);
+    return Math.atan2(Vec.dot(dp1, enu1.e), Vec.dot(dp1, enu1.n));
 }
 
 /**
