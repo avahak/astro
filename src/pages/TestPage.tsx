@@ -12,9 +12,9 @@ import { DataSet, GraphText, Point } from '../tools/graph/types';
 import { Graph } from '../tools/graph/Graph';
 import { Time } from '../astro/time/time';
 import { cst } from '../astro/constants';
-import { equationOfTheOrigins } from '../astro/cio/cioLocator';
 import { precessionMatrix } from "../astro/precession";
 import { nutation, nutationMatrix, nutationMatrixFromParameters } from "../astro/nutation";
+import { equationOfTheOrigins } from "../astro/cio";
 
 function adjust(x: number) {
     x = x % cst.TAU;

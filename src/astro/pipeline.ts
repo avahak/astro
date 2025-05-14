@@ -10,7 +10,7 @@ import { PosVel } from "./math/posvel";
 import { cst } from "./constants";
 import { Vec } from "./math/vec";
 import { enuBasisFromSpherical, oplus, rectangularFromGeodetic } from "./math/mathTools";
-import { cioMatrix } from "./cio/cioLocator";
+import { cioMatrix } from "./cio";
 
 /**
  * Pipeline for computing apparent place for stars and other bodies.
@@ -41,7 +41,7 @@ class Pipeline {
         const emb = this.snapshot.set('emb', computeBody('EARTH-MOON'));
         const vEarthMoon = this.snapshot.set('vEarthMoon', computeMoon);
         const c = 1 / (cst.MASS_RATIO_EARTH_MOON + 1);
-        const earth = this.snapshot.set('Earth', PosVel.wSum([emb, vEarthMoon], [1, -c]));
+        this.snapshot.set('Earth', PosVel.wSum([emb, vEarthMoon], [1, -c]));
         this.snapshot.set('Moon', PosVel.wSum([emb, vEarthMoon], [1, 1-c]));
 
         const pMat = this.snapshot.set('pMat', precessionMatrix(this.snapshot.time.jc_tdb));
