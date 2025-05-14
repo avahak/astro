@@ -5,7 +5,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Link as MUILink } from '@mui/material';
 import { MPP02Ephemeris } from "../../astro/ephemeris/mpp02Ephemeris";
 import { VSOP87AEphemeris } from "../../astro/ephemeris/vsop87aEphemeris";
-import { starsGroup } from './starsGroup';
+import { StarsGroup } from './starsGroup';
 
 const StarChart: React.FC = () => {
     const [vsop87a, setVSOP87A] = useState<VSOP87AEphemeris|null>(null);
@@ -62,7 +62,7 @@ const StarChart: React.FC = () => {
         return <></>;
     
     console.log('astro', astro);
-    const g = starsGroup(astro);
+    const sg = new StarsGroup(astro);
 
 
     return (<>
