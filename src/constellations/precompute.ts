@@ -67,12 +67,13 @@ function createIntervalLookup(arr: number[]) {
 
 class Constellations {
     static MAX_WIDTH = 1024;
+    static PRECESSION_MATRIX = precessionMatrix((2405889.258550475-2451545)/36525) as number[][];
+    static PRECESSION_MATRIX_T = math.transpose(Constellations.PRECESSION_MATRIX);
     cleanUpTasks: (() => void)[] = [];
     raTexture: THREE.DataTexture;
     deTexture: THREE.DataTexture;
     conTexture: THREE.Texture;
     size: [number, number];     // size of lookup tables
-    matrix: number[][];
 
     constructor(astro: any, onLoad: () => void = () => {}) {
         const cons = astro['constellations'];
@@ -90,7 +91,6 @@ class Constellations {
         const raLut = createIntervalLookup(raList.map((v) => v/(2*Math.PI)));
         const deLut = createIntervalLookup(deList.map((v) => 0.5+v/Math.PI));
         this.size = [raLut.length, deLut.length];
-        this.matrix = math.transpose(precessionMatrix((2405889.258550475-2451545)/36525) as number[][]);
 
         const createTexture = (data: number[]) => {
             const w = Math.min(Constellations.MAX_WIDTH, data.length);

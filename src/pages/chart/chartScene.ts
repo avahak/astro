@@ -4,12 +4,14 @@ import { TextGroup } from '../../tools/primitives/textRender';
 import { MCSDFFont } from '../../tools/primitives/font';
 import { QuadGroup } from './quadGroup';
 import { SphereLocation } from './sphereLocation';
+import { SplineGroup } from './splineGroup';
 
 class ChartScene {
     scene: THREE.Scene;
     starsGroup: StarsGroup;
     textGroup: TextGroup;
     quadGroup: QuadGroup;
+    splineGroup: SplineGroup;
 
     loc: SphereLocation;
 
@@ -22,8 +24,10 @@ class ChartScene {
 
         this.quadGroup = new QuadGroup(astro, () => { this.needsUpdate = true; });
         this.starsGroup = new StarsGroup(astro);
+        this.splineGroup = new SplineGroup(astro);
         this.scene.add(this.quadGroup.mesh);
         this.scene.add(this.starsGroup.mesh);
+        this.scene.add(this.splineGroup.group);
 
         // const cubeGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
         // const cubeMaterial = new THREE.MeshNormalMaterial();
@@ -40,6 +44,7 @@ class ChartScene {
     dispose() {
         this.quadGroup.dispose();
         this.starsGroup.dispose();
+        this.splineGroup.dispose();
     }
 
     resize(width: number, height: number) {
@@ -55,9 +60,11 @@ class ChartScene {
         const m3 = new THREE.Matrix3().setFromMatrix4(m4);
         this.starsGroup.shader.uniforms.rotation.value = m3;
         this.quadGroup.shader.uniforms.rotation.value = m3;
+        this.splineGroup.setRotation(m3);
 
         this.starsGroup.shader.uniforms.focalLength.value = this.loc.scale;
         this.quadGroup.shader.uniforms.focalLength.value = this.loc.scale;
+        this.splineGroup.setFocalLength(this.loc.scale);
     }
 
     postRender() {

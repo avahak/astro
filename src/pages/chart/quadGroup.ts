@@ -47,7 +47,7 @@ class QuadGroup {
                 deTexture: { value: this.constellations.deTexture },
                 conTexture: { value: this.constellations.conTexture },
                 size: { value: this.constellations.size },
-                conMatrix: { value: new THREE.Matrix3().fromArray(this.constellations.matrix.flat()) },
+                conMatrix: { value: new THREE.Matrix3().fromArray(Constellations.PRECESSION_MATRIX_T.flat()) },
 
                 focalLength: { value: null },
                 cubeTexture: { value: this.cubeTexture },
