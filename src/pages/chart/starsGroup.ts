@@ -13,7 +13,7 @@ class StarsGroup {
 
     shader: THREE.ShaderMaterial;
 
-    mesh: THREE.Mesh;
+    mesh: THREE.Points;
 
     constructor(astro: any) {
         const stars = [];
@@ -31,19 +31,36 @@ class StarsGroup {
             const bmv = obj.Bmag - obj.Vmag;
             data.push(...[...p, ...pv, vMag, bmv]);
         }
+        console.log(data);
         const n = stars.length;
-        const m = n * StarsGroup.FLOATS_PER_STAR;
+        const m = n * StarsGroup.FLOATS_PER_STAR / 4;
 
+        const [w, h] = [
+            Math.min(m, StarsGroup.TEXTURE_MAX_WIDTH), 
+            Math.ceil(m / StarsGroup.TEXTURE_MAX_WIDTH)
+        ];
+        const float32Data = new Float32Array(4*w*h);
+        float32Data.set(data, 0);
         this.dataTexture = new THREE.DataTexture(
-            new Float32Array(data), 
-            Math.min(m, StarsGroup.TEXTURE_MAX_WIDTH),
-            Math.ceil(m / StarsGroup.TEXTURE_MAX_WIDTH),
+            float32Data, w, h,
             THREE.RGBAFormat, THREE.FloatType,
         );
+        this.dataTexture.needsUpdate = true;
+
+        // console.log('n', n);
+        // console.log('m', m);
+        // console.log('dim_x', Math.min(m, StarsGroup.TEXTURE_MAX_WIDTH));
+        // console.log('dim_y', Math.ceil(m / StarsGroup.TEXTURE_MAX_WIDTH));
+        // console.log('dim_x*dim_y', Math.min(m, StarsGroup.TEXTURE_MAX_WIDTH)*Math.ceil(m / StarsGroup.TEXTURE_MAX_WIDTH));
 
         this.shader = new THREE.ShaderMaterial({
+            defines: {
+                PROJECTION_STEREOGRAPHIC: true,
+            },
             uniforms: {
-                dataTexture: { value: this.dataTexture },
+                focalLength: { value: null },
+                starDataTexture: { value: this.dataTexture },
+                rotation: { value: null },
             },
             vertexShader: vsStar,
             fragmentShader: fsStar,
@@ -54,13 +71,14 @@ class StarsGroup {
         // dummy position, not used
         this.ibGeometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0], 3));
         this.ibGeometry.instanceCount = n;
-
-        this.mesh = new THREE.Mesh(this.ibGeometry, this.shader);
+        
+        this.mesh = new THREE.Points(this.ibGeometry, this.shader);
+        this.mesh.frustumCulled = false;
     }
 
     dispose() {
         this.ibGeometry.dispose();
-        this.dataTexture?.dispose();
+        this.dataTexture.dispose();
         this.shader.dispose();
     }
 }

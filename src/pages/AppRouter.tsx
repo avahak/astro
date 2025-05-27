@@ -9,7 +9,7 @@ import { PrecessionPage } from './precession/PrecessionPage.tsx';
 import { StarsPage } from './stars/StarsPage.tsx';
 import { SphericalPage } from './spherical/Spherical.tsx';
 import { ComparisonPage } from './errors/ComparisonPage.tsx';
-import { StarChart } from './chart/StarChart.tsx';
+import { ChartTest } from './chart/ChartTest.tsx';
 
 const AppRouter = () => {
     return (<>
@@ -25,7 +25,7 @@ const AppRouter = () => {
                 <Route path="/test" element={<TestPage />} />
                 <Route path="/test_old" element={<TestPageOld />} />
                 <Route path="/spherical" element={<SphericalPage />} />
-                <Route path="/star_chart" element={<StarChart />} />
+                <Route path="/star_chart" element={<ChartTest />} />
             </Routes>
         </HashRouter>
     </>);

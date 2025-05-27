@@ -1,11 +1,11 @@
-type ChartProps = {
+type StarChartProps = {
     x: number;
 };
 
-type GraphController = {
+type ChartController = {
     transform: (x: number, y: number, dx: number, dy: number, scale: number, angle: number) => void;
-    setLocation: (x: number, y: number, scale: number) => void;
+    setLocation: (phi: number, theta: number, scale: number) => void;
     update: () => void;
 };
 
-export type { ChartProps, GraphController };
+export type { StarChartProps, ChartController };

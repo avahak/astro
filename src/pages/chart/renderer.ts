@@ -1,11 +1,10 @@
 import * as THREE from 'three';
-import { TextGroup } from '../../tools/primitives/textRender';
-import { MCSDFFont } from '../../tools/primitives/font';
 import { SharedResource } from '../../tools/graph/sharedResource';
-import { GraphController } from './types';
 import { SphereLocation } from './sphereLocation';
+import { ChartScene } from './chartScene';
+import { ChartController } from './types';
 
-class GraphRenderer {
+class ChartRenderer {
     container: HTMLDivElement;
     canvas: HTMLCanvasElement;
     canvasContext: CanvasRenderingContext2D;
@@ -17,17 +16,18 @@ class GraphRenderer {
     renderer: THREE.WebGLRenderer;
 
     camera: THREE.OrthographicCamera;
-    scene: THREE.Scene;
     cleanupTasks: (() => void)[];
-    controller!: GraphController;
-    loc: SphereLocation;
 
-    textGroup: TextGroup;               // this pool of text is redrawn every time
     animationFrameHandle: number = 0;
 
+    controller!: ChartController;
 
-    constructor(container: HTMLDivElement, fonts: MCSDFFont[]) {
+    chartScene: ChartScene;
+
+
+    constructor(container: HTMLDivElement, chartScene: ChartScene) {
         this.container = container;
+        this.chartScene = chartScene;
         this.cleanupTasks = [];
         this.renderer = SharedResource.acquire('webgl-renderer', () => new THREE.WebGLRenderer({ antialias: true, alpha: true }));
 
@@ -42,13 +42,6 @@ class GraphRenderer {
         this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
         this.camera.position.set(0, 0, 1);
         this.camera.lookAt(new THREE.Vector3(0, 0, 0));
-
-        this.scene = new THREE.Scene();
-
-        this.textGroup = new TextGroup(fonts[0]);
-        this.scene.add(this.textGroup.getObject());
-
-        this.loc = new SphereLocation();
 
         this.setupResize();
         this.setupController();
@@ -78,8 +71,10 @@ class GraphRenderer {
         this.camera.right = aspect;
         this.camera.updateProjectionMatrix();
 
-        console.log('Resize', clientWidth, clientHeight);
+        this.chartScene.resize(clientWidth, clientHeight);
         this.controller.update();
+
+        console.log('Resize', clientWidth, clientHeight);
     }
 
     setupResize() {
@@ -96,27 +91,32 @@ class GraphRenderer {
         const renderer = this;
         this.controller = {
             transform(x: number, y: number, dx: number, dy: number, scale: number, angle: number) {
-                // renderer.loc.transform(x, y, dx, dy, scale, angle);
+                renderer.chartScene.loc.transform(x, y, dx, dy, scale, angle);
+                renderer.chartScene.needsUpdate = true;
                 renderer.requestRender();
             },
-            setLocation(x: number, y: number, scale: number) {
-                // renderer.loc.setLocation(x, y, scale, scale);
+            setLocation(phi: number, theta: number, scale: number) {
+                renderer.chartScene.loc.setLocation(phi, theta, scale);
+                renderer.chartScene.needsUpdate = true;
                 renderer.requestRender();
             },
             update() {
+                renderer.chartScene.needsUpdate = true;
                 renderer.requestRender();
             },
         }
     }
 
-    getController(): GraphController {
+    getController(): ChartController {
         return this.controller;
     }
 
     dispose() {
+        console.log("dispose 1");
         if (this.animationFrameHandle)
             cancelAnimationFrame(this.animationFrameHandle);
-        this.textGroup.dispose();
+        console.log("dispose 2");
+        this.chartScene.dispose();
         for (const task of this.cleanupTasks)
             task();
         this.cleanupTasks = [];
@@ -124,40 +124,41 @@ class GraphRenderer {
         this.canvas.width = 1;
         this.canvas.height = 1;
         SharedResource.release('webgl-renderer');
+        console.log("dispose 3");
     }
 
     render() {
-        // console.log('GraphRenderer.render()', Math.random());
+        if (!this.chartScene.needsUpdate)
+            return;
         const [width, height] = this.getResolution();
+        if (!width || !height)      // Can happen when component is unmounted
+            return;
+        console.log('GraphRenderer.render()', width, height);
 
         if (this.renderer.domElement.width !== width || this.renderer.domElement.height !== height)
             this.renderer.setSize(width, height);
         if (this.renderer.pixelRatio !== this.lastDpr)
             this.renderer.setPixelRatio(this.lastDpr);
-        this.renderer.render(this.scene, this.camera);
+
+        this.chartScene.preRender();
+
+        this.renderer.render(this.chartScene.scene, this.camera);
         this.canvasContext.globalCompositeOperation = 'copy';
         this.canvasContext.drawImage(this.renderer.domElement, 0, 0);
         this.canvasContext.globalCompositeOperation = 'source-over';    // back to default
 
-        this.textGroup.reset();
+        this.chartScene.postRender();
+        this.requestRender();
     }
 
     requestRender() {
         if (!this.animationFrameHandle) {
             this.animationFrameHandle = requestAnimationFrame(() => {
-                this.render();
                 this.animationFrameHandle = 0;
+                this.render();
             });
         }
     }
-
-    setIsVisible(groupName: string, value: boolean) {
-        this.scene.traverse((object) => {
-            if (object.userData.groupName === groupName)
-                object.visible = value;
-        });
-        this.requestRender();
-    }
 }
 
-export { GraphRenderer };
+export { ChartRenderer };

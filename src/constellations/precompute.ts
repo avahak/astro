@@ -1,3 +1,5 @@
+import * as math from 'mathjs';
+import { precessionMatrix } from '../astro/precession';
 import * as THREE from 'three';
 
 function gcd(a: number, b: number): number {
@@ -70,8 +72,9 @@ class Constellations {
     deTexture: THREE.DataTexture;
     conTexture: THREE.Texture;
     size: [number, number];     // size of lookup tables
+    matrix: number[][];
 
-    constructor(astro: any) {
+    constructor(astro: any, onLoad: () => void = () => {}) {
         const cons = astro['constellations'];
         const raList = [];
         const deList = [];
@@ -87,6 +90,7 @@ class Constellations {
         const raLut = createIntervalLookup(raList.map((v) => v/(2*Math.PI)));
         const deLut = createIntervalLookup(deList.map((v) => 0.5+v/Math.PI));
         this.size = [raLut.length, deLut.length];
+        this.matrix = math.transpose(precessionMatrix((2405889.258550475-2451545)/36525) as number[][]);
 
         const createTexture = (data: number[]) => {
             const w = Math.min(Constellations.MAX_WIDTH, data.length);
@@ -110,7 +114,7 @@ class Constellations {
         this.deTexture = createTexture(deLut);
 
         const textureLoader = new THREE.TextureLoader();
-        this.conTexture = textureLoader.load('/astro/cons.png');
+        this.conTexture = textureLoader.load('/astro/cons.png', onLoad);
         this.conTexture.colorSpace = THREE.NoColorSpace;
         this.conTexture.generateMipmaps = false;
         this.conTexture.minFilter = THREE.NearestFilter;
@@ -120,7 +124,7 @@ class Constellations {
         this.conTexture.flipY = false;
     }
 
-    cleanUp() {
+    dispose() {
         for (const task of this.cleanUpTasks)
             task();
         this.raTexture.dispose();
