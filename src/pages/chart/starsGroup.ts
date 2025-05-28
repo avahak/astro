@@ -1,12 +1,16 @@
 import * as THREE from 'three';
+import sCommon from './shaders/sCommon.glsl?raw';
 import vsStar from './shaders/vsStar.glsl?raw';
 import fsStar from './shaders/fsStar.glsl?raw';
 import { trueMotionSphericalToCartesian } from '../../astro/math/mathTools';
-import { Vec } from '../../astro/math/vec';
+import { SphereLocation } from './sphereLocation';
+import { ChartScene } from './chartScene';
 
 class StarsGroup {
     static TEXTURE_MAX_WIDTH = 1024;
     static FLOATS_PER_STAR = 8;
+
+    chartScene: ChartScene;
 
     dataTexture: THREE.Texture;
     ibGeometry: THREE.InstancedBufferGeometry;
@@ -15,7 +19,9 @@ class StarsGroup {
 
     mesh: THREE.Points;
 
-    constructor(astro: any) {
+    constructor(chartScene: ChartScene, astro: any) {
+        this.chartScene = chartScene;
+
         const stars = [];
         const data = [];
         for (const star of astro.stars.data) {
@@ -54,16 +60,15 @@ class StarsGroup {
         // console.log('dim_x*dim_y', Math.min(m, StarsGroup.TEXTURE_MAX_WIDTH)*Math.ceil(m / StarsGroup.TEXTURE_MAX_WIDTH));
 
         this.shader = new THREE.ShaderMaterial({
-            defines: {
-                PROJECTION_STEREOGRAPHIC: true,
-            },
+            defines: this.chartScene.loc.projectionDefines,
             uniforms: {
+                mollweideTexture: { value: this.chartScene.mollweide.texture },
                 focalLength: { value: null },
                 starDataTexture: { value: this.dataTexture },
                 rotation: { value: null },
             },
-            vertexShader: vsStar,
-            fragmentShader: fsStar,
+            vertexShader: sCommon + '\n' + vsStar,
+            fragmentShader: sCommon + '\n' + fsStar,
             transparent: true,
         });
 

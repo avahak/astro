@@ -1,5 +1,3 @@
-precision highp float;
-
 out vec2 vPos;
 
 void main() {

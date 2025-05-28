@@ -3,13 +3,18 @@ import vsSpline from './shaders/vsSpline.glsl?raw';
 import fsSpline from './shaders/fsSpline.glsl?raw';
 import { UCBSplineGroup } from './UCBSpline';
 import { Constellations } from '../../constellations/precompute';
+import { ChartScene } from './chartScene';
 
 class SplineGroup {
+    chartScene: ChartScene;
+
     constellationSplines: UCBSplineGroup;
     group: THREE.Group;
 
-    constructor(astro: any) {
-        this.constellationSplines = new UCBSplineGroup(16);
+    constructor(chartScene: ChartScene, astro: any) {
+        this.chartScene = chartScene;
+        
+        this.constellationSplines = new UCBSplineGroup(chartScene, 16);
         this.createConstellationSplines(astro);
 
         this.group = new THREE.Group();

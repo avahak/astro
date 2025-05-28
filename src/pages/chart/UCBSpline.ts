@@ -1,18 +1,8 @@
 import * as THREE from 'three';
+import sCommon from './shaders/sCommon.glsl?raw';
 import vsSpline from './shaders/vsSpline.glsl?raw';
 import fsSpline from './shaders/fsSpline.glsl?raw';
-import { MollweideProjection } from './mollweide';
-
-function precomputeMollweideTheta(size: number) {
-    // Solving 2*tau+sin(2*tau)=pi*sin(pi/2*x) for all x in [0,1]
-    const values = new Float32Array(size);
-    for (let k = 0; k < size; k++) {
-        const x = (k+0.5) / size;
-        const theta = x * Math.PI/2;
-        values[k] = MollweideProjection.solveTau(theta);
-    }
-    return values;
-}
+import { ChartScene } from './chartScene';
 
 /**
  * Draws uniform cubic B-splines using instancing.
@@ -23,7 +13,6 @@ class UCBSplineGroup {
      * This is used to avoid limitations on texture dimensions.
      */
     static MAX_WIDTH = 1024;
-    static MOLLWEIDE_THETA = precomputeMollweideTheta(1024);
     /**
      * Matrix to compute B-spline control points that yield given curve points at t=0,1/3,2/3,1.
      */
@@ -34,13 +23,14 @@ class UCBSplineGroup {
         [-4, 16.5, -24, 12.5]
     ];
 
+    chartScene: ChartScene;
+
     shader: THREE.ShaderMaterial;
     numSegments: number;
 
     ibGeometry!: THREE.InstancedBufferGeometry;
     controlPointTexture!: THREE.DataTexture;    // positions and colors for each control point
     indexTexture!: THREE.DataTexture;
-    mollweideTexture!: THREE.DataTexture;
     mesh: THREE.Line;
 
     // (x,y,z,0,red,green,blue,0) for each control point, flattened
@@ -51,23 +41,23 @@ class UCBSplineGroup {
     numControlPoints: number = 0;
     numIndexes: number = 0;
 
-    constructor(numSegments: number=16) {
+    constructor(chartScene: ChartScene, numSegments: number=16) {
+        this.chartScene = chartScene;
+        
         this.numSegments = numSegments;
 
         this.shader = new THREE.ShaderMaterial({
-            defines: {
-                PROJECTION_STEREOGRAPHIC: true,
-            },
+            defines: this.chartScene.loc.projectionDefines,
             uniforms: {
                 numSegments: { value: this.numSegments },
-                mollweideTexture: { value: null },
+                mollweideTexture: { value: this.chartScene.mollweide.texture },
                 controlPointTexture: { value: null },
                 indexTexture: { value: null },
                 focalLength: { value: null },
                 rotation: { value: null },
             },
-            vertexShader: vsSpline,
-            fragmentShader: fsSpline,
+            vertexShader: sCommon + '\n' + vsSpline,
+            fragmentShader: sCommon + '\n' + fsSpline,
         });
 
         this.ibGeometry = new THREE.InstancedBufferGeometry();
@@ -80,16 +70,6 @@ class UCBSplineGroup {
         this.indexTexture = new THREE.DataTexture(this.indexArray, this.indexArray.length, 1, THREE.RedIntegerFormat, THREE.IntType);
         this.shader.uniforms.controlPointTexture.value = this.controlPointTexture;
         this.shader.uniforms.indexTexture.value = this.indexTexture;
-
-        this.mollweideTexture = new THREE.DataTexture(
-            UCBSplineGroup.MOLLWEIDE_THETA, 
-            UCBSplineGroup.MOLLWEIDE_THETA.length, 1,
-            THREE.RedFormat, THREE.FloatType
-        );
-        this.mollweideTexture.minFilter = THREE.LinearFilter;
-        this.mollweideTexture.magFilter = THREE.LinearFilter;
-        this.mollweideTexture.needsUpdate = true;
-        this.shader.uniforms.mollweideTexture.value = this.mollweideTexture;
 
         this.mesh = new THREE.Line(this.ibGeometry, this.shader);
         this.mesh.frustumCulled = false;
@@ -211,7 +191,6 @@ class UCBSplineGroup {
         this.controlPointTexture.dispose();
         this.indexTexture.dispose();
         this.ibGeometry.dispose();
-        this.mollweideTexture.dispose();
     }
 }
 

@@ -1,8 +1,37 @@
+import * as THREE from 'three';
+
 /**
  * Mollweide projection. Here phi is azimuth and theta is elevation angle.
  */
 class MollweideProjection {
     private static readonly TOLERANCE = 1e-14;
+    theta: Float32Array;
+    texture: THREE.DataTexture;
+
+    constructor(size: number=1024) {
+        this.theta = MollweideProjection.precomputeMollweideTheta(size);
+
+        this.texture = new THREE.DataTexture(
+            this.theta, this.theta.length, 1,
+            THREE.RedFormat, THREE.FloatType
+        );
+        this.texture.minFilter = THREE.LinearFilter;
+        this.texture.magFilter = THREE.LinearFilter;
+        this.texture.needsUpdate = true;
+    }
+
+    /**
+     * Solving 2*tau+sin(2*tau)=pi*sin(pi/2*x) for all x in [0,1]
+     */
+    static precomputeMollweideTheta(size: number) {
+        const values = new Float32Array(size);
+        for (let k = 0; k < size; k++) {
+            const x = (k+0.5) / size;
+            const theta = x * Math.PI/2;
+            values[k] = MollweideProjection.solveTau(theta);
+        }
+        return values;
+    }
     
     /**
      * Solve 2*tau + sin(2*tau) = PI*sin(theta) using Newton's method.
@@ -45,6 +74,10 @@ class MollweideProjection {
         const phi = (Math.PI * x) / (2 * r * Math.SQRT2 * Math.cos(tau));
         const theta = Math.asin((2*tau + Math.sin(2*tau)) / Math.PI);
         return [phi, theta];
+    }
+
+    dispose() {
+        this.texture.dispose();
     }
 }
 

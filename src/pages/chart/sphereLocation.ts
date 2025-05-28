@@ -6,6 +6,11 @@ class SphereLocation {
     theta!: number;
     scale!: number;
 
+    /**
+     * Defines used in three.js shaders
+     */
+    projectionDefines: any;
+
     constructor() {
         this.setLocation(0, 0, 1);
     }
@@ -14,6 +19,13 @@ class SphereLocation {
         this.phi = phi;
         this.theta = theta;
         this.scale = scale;
+
+        this.projectionDefines = {
+            PROJECTION_STEREOGRAPHIC: false,
+            PROJECTION_GNOMONIC: false,
+            PROJECTION_MOLLWEIDE: true,
+            PROJECTION_HAMMER: false,
+        };
     }
 
     transform(x: number, y: number, dx: number, dy: number, scale: number, angle: number) {

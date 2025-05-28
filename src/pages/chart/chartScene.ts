@@ -5,6 +5,7 @@ import { MCSDFFont } from '../../tools/primitives/font';
 import { QuadGroup } from './quadGroup';
 import { SphereLocation } from './sphereLocation';
 import { SplineGroup } from './splineGroup';
+import { MollweideProjection } from './mollweide';
 
 class ChartScene {
     scene: THREE.Scene;
@@ -13,6 +14,8 @@ class ChartScene {
     quadGroup: QuadGroup;
     splineGroup: SplineGroup;
 
+    mollweide: MollweideProjection;
+
     loc: SphereLocation;
 
     needsUpdate: boolean;
@@ -20,11 +23,13 @@ class ChartScene {
     constructor(astro: any, fonts: MCSDFFont[]) {
         this.scene = new THREE.Scene();
 
+        this.mollweide = new MollweideProjection();
+
         this.loc = new SphereLocation();
 
-        this.quadGroup = new QuadGroup(astro, () => { this.needsUpdate = true; });
-        this.starsGroup = new StarsGroup(astro);
-        this.splineGroup = new SplineGroup(astro);
+        this.quadGroup = new QuadGroup(this, astro, () => { this.needsUpdate = true; });
+        this.starsGroup = new StarsGroup(this, astro);
+        this.splineGroup = new SplineGroup(this, astro);
         this.scene.add(this.quadGroup.mesh);
         this.scene.add(this.starsGroup.mesh);
         this.scene.add(this.splineGroup.group);
@@ -45,6 +50,7 @@ class ChartScene {
         this.quadGroup.dispose();
         this.starsGroup.dispose();
         this.splineGroup.dispose();
+        this.mollweide.dispose();
     }
 
     resize(width: number, height: number) {

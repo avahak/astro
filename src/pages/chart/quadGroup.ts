@@ -1,11 +1,16 @@
 import * as THREE from 'three';
 import { Constellations } from '../../constellations/precompute';
+import sCommon from './shaders/sCommon.glsl?raw';
 import vsQuad from './shaders/vsQuad.glsl?raw';
 import fsQuad from './shaders/fsQuad.glsl?raw';
 import { precessionMatrix } from '../../astro/precession';
 import * as math from 'mathjs';
+import { SphereLocation } from './sphereLocation';
+import { ChartScene } from './chartScene';
 
 class QuadGroup {
+    chartScene: ChartScene;
+
     cubeTexture: THREE.CubeTexture;
     shader: THREE.ShaderMaterial;
 
@@ -13,7 +18,9 @@ class QuadGroup {
 
     mesh: THREE.Mesh;
 
-    constructor(astro: any, onLoad: () => void) {
+    constructor(chartScene: ChartScene, astro: any, onLoad: () => void) {
+        this.chartScene = chartScene;
+        
         const loader = new THREE.CubeTextureLoader();
         // Careful here, lots of flipping
         // this.cubeTexture = loader.load([
@@ -39,10 +46,10 @@ class QuadGroup {
         this.constellations = new Constellations(astro, onLoad);
 
         this.shader = new THREE.ShaderMaterial({
-            defines: {
-                PROJECTION_STEREOGRAPHIC: true,
-            },
+            defines: this.chartScene.loc.projectionDefines,
             uniforms: {
+                mollweideTexture: { value: this.chartScene.mollweide.texture },
+                
                 raTexture: { value: this.constellations.raTexture },
                 deTexture: { value: this.constellations.deTexture },
                 conTexture: { value: this.constellations.conTexture },
@@ -53,8 +60,8 @@ class QuadGroup {
                 cubeTexture: { value: this.cubeTexture },
                 rotation: { value: null },
             },
-            vertexShader: vsQuad,
-            fragmentShader: fsQuad,
+            vertexShader: sCommon + '\n' + vsQuad,
+            fragmentShader: sCommon + '\n' + fsQuad,
             transparent: true,
         });
 

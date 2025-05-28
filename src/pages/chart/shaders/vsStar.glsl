@@ -1,56 +1,9 @@
-precision highp float;
-
 uniform sampler2D starDataTexture;
-uniform float focalLength;
 uniform mat3 rotation;
 
 flat out vec3 vColor;
 flat out float vSize;
 
-#define MAX_WIDTH 1024
-#define PI 3.1415926535898
-#define SQRT2 1.4142135623731
-
-vec2 project(vec3 p) {
-#ifdef PROJECTION_STEREOGRAPHIC
-    float r = length(p);
-    return focalLength * p.xy / (r-p.z);
-#elif defined(PROJECTION_GNOMONIC)
-    //...
-#elif defined(PROJECTION_MOLLWEIDE)
-    //...
-#elif defined(PROJECTION_HAMMER)
-    //...
-#endif
-}
-
-// Computes Mollweide projection from (azimuth,elevation angle)
-// vec2 mollweide(vec2 azel) {
-//     // Use precomputed texture to solve 2*tau+sin(2*tau)=PI*sin(elevation)
-//     float tau = sign(azel.y) * texture(mollweideTexture, vec2(abs(azel.y)/(PI/2.0), 0.0)).r;
-//     float x = 2.0*SQRT2/PI * azel.x * cos(tau);
-//     float y = SQRT2 * sin(tau);
-//     return vec2(x, y);
-// }
-
-// Computes Hammer projection from (azimuth,elevation angle)
-// vec2 hammer(vec2 azel) {
-//     float denom = sqrt(1.0 + cos(azel.y)*cos(azel.x/2.0));
-//     float x = 2.0*SQRT2 * cos(azel.y) * sin(azel.x/2.0) / denom;
-//     float y = SQRT2 * sin(azel.y) / denom;
-//     return vec2(x, y);
-// }
-
-// vec3 fisheyeStereographic(vec3 p0) {
-//     float r0 = length(p0);
-//     float r0xy = length(p0.xy);
-//     float phi = 0.5 * atan(r0xy, -p0.z);
-//     vec3 p = r0 * vec3(2.0*focalLength * sin(phi)*p0.xy/r0xy, -cos(phi));
-//     return p;
-//     // Now r on image plane is c*|p.xy|/(-p.z) = c*2f*tan(phi) = c*2f*tan(theta/2), 
-//     // i.e. r = c*2f tan(theta/2), which is the formula for fisheye lens 
-//     // with stereographic projection.
-// }
 
 vec3 linearFromSRGB(vec3 color) {
     return mix(
@@ -110,5 +63,5 @@ void main() {
     gl_PointSize = 16.0 + vSize;
 
     vec3 q = rotation * p;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(project(q), 0.0, 1.0);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(project(q, true), 1.0);
 }
