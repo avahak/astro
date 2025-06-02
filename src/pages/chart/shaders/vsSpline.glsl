@@ -33,10 +33,10 @@ vec4 splineCoeffs(float t) {
 
 // Find elevation angle where segment [p,q] crosses antimeridian
 float antimeridianIntersectionElevation(vec3 p, vec3 q) {
-    float t = -p.y / (q.y-p.y);
-    vec3 pt = p + t*(q-p);      // pt.y=0
-    float rxy = length(pt.xy);
-    float el = atan(pt.z, rxy);
+    float t = -p.x / (q.x-p.x);
+    vec3 pt = p + t*(q-p);
+    float rxz = length(pt.xz);
+    float el = atan(pt.y, rxz);
     return el;
 }
 
@@ -66,7 +66,7 @@ void main() {
 
 
     #if defined(PROJECTION_MOLLWEIDE) || defined(PROJECTION_HAMMER)
-        vec3 sp = sphericalFromCartesian(p);
+        vec3 sp = sphericalFromCartesian(vec3(-p.z, p.x, p.y));
         // Discontinuity handling when line segments cross the antimeridian
         if (index % 2 == 1) {
             // Vertex is a middle vertex and may have to be moved.
@@ -78,8 +78,8 @@ void main() {
             vec3 nextPos = rotation * (nextWeights.x*cp0 + nextWeights.y*cp1 + nextWeights.z*cp2 + nextWeights.w*cp3);
             // Base is [prevPos,nextPos] and its subsegment pair is [prevPos,pos], [pos,nextPos]
 
-            float prevAzimuth = atan(prevPos.y, prevPos.x);
-            float nextAzimuth = atan(nextPos.y, nextPos.x);
+            float prevAzimuth = atan(prevPos.x, -prevPos.z);
+            float nextAzimuth = atan(nextPos.x, -nextPos.z);
             // Check if either subsegment spans >180 degrees
             if ((abs(prevAzimuth-sp.x) > PI) || (abs(sp.x-nextAzimuth) > PI)) {
                 if (abs(prevAzimuth-nextAzimuth) > PI) {
@@ -92,9 +92,11 @@ void main() {
                     else
                         // Subsegment [prevPos,pos]
                         sp.x = prevAzimuth > 0.0 ? PI : -PI;
-                } else 
+                } else {
                     // Special case: subsegment crosses but base doesn't - use base segment midpoint
-                    sp = sphericalFromCartesian(0.5*prevPos + 0.5*nextPos);
+                    vec3 tp = 0.5*prevPos + 0.5*nextPos;
+                    sp = sphericalFromCartesian(vec3(-tp.z, tp.x, tp.y));
+                }
 
                 // color = vec3(1.0, 0.0, 0.0);
             }

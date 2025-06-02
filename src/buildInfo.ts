@@ -1,1 +1,1 @@
-export const BUILD_TIMESTAMP = '28/05/2025, 06.01';
+export const BUILD_TIMESTAMP = '02/06/2025, 04.13';

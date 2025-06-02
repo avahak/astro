@@ -1,3 +1,5 @@
+type Projection = "STEREOGRAPHIC" | "GNOMONIC" | "MOLLWEIDE" | "HAMMER";
+
 type StarChartProps = {
     x: number;
 };
@@ -8,4 +10,4 @@ type ChartController = {
     update: () => void;
 };
 
-export type { StarChartProps, ChartController };
+export type { Projection, StarChartProps, ChartController };

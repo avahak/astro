@@ -91,7 +91,8 @@ class ChartRenderer {
         const renderer = this;
         this.controller = {
             transform(x: number, y: number, dx: number, dy: number, scale: number, angle: number) {
-                renderer.chartScene.loc.transform(x, y, dx, dy, scale, angle);
+                const [width, height] = renderer.getResolution();
+                renderer.chartScene.loc.transform(x, y, dx, dy, scale, angle, width, height);
                 renderer.chartScene.needsUpdate = true;
                 renderer.requestRender();
             },

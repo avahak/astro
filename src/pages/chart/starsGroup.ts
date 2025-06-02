@@ -5,6 +5,7 @@ import fsStar from './shaders/fsStar.glsl?raw';
 import { trueMotionSphericalToCartesian } from '../../astro/math/mathTools';
 import { SphereLocation } from './sphereLocation';
 import { ChartScene } from './chartScene';
+import { Vec } from '../../astro/math/vec';
 
 class StarsGroup {
     static TEXTURE_MAX_WIDTH = 1024;

@@ -27,8 +27,9 @@ vec3 project(vec3 p, bool isCartesian) {
         return vec3(focalLength * q, 0.1+0.9*length(q)/20.0);
     #elif defined(PROJECTION_GNOMONIC)
         float r = length(p);
-        return vec3(focalLength * p.xy / p.z, 1.0-0.5*p.z/r);
+        return vec3(-focalLength * p.xy / p.z, 1.0+0.5*p.z/r);
     #elif defined(PROJECTION_MOLLWEIDE)
+        p = isCartesian ? vec3(-p.z, p.x, p.y) : p;
         vec3 sp = isCartesian ? sphericalFromCartesian(p) : p;
         // Use precomputed texture to solve 2*tau+sin(2*tau)=PI*sin(elevation)
         float tau = sign(sp.y) * texture(mollweideTexture, vec2(abs(sp.y)/(PI/2.0), 0.0)).r;
@@ -36,6 +37,7 @@ vec3 project(vec3 p, bool isCartesian) {
         float y = SQRT2 * sin(tau);
         return vec3(focalLength * x, focalLength * y, 0.1);
     #elif defined(PROJECTION_HAMMER)
+        p = isCartesian ? vec3(-p.z, p.x, p.y) : p;
         vec3 sp = isCartesian ? sphericalFromCartesian(p) : p;
         float denom = sqrt(1.0 + cos(sp.y)*cos(sp.x/2.0));
         float x = 2.0*SQRT2 * cos(sp.y) * sin(sp.x/2.0) / denom;
@@ -51,18 +53,20 @@ vec3 inverseProject(vec2 p) {
         return vec3(t*q, 1.0-t);
     #elif defined(PROJECTION_GNOMONIC)
         vec2 q = p / focalLength;
-        return vec3(q, 1.0);
+        return vec3(q, -1.0);
     #elif defined(PROJECTION_MOLLWEIDE)
         vec2 q = p / focalLength;
         float tau = asin(q.y / SQRT2);
         float el = asin((2.0*tau + sin(2.0*tau)) / PI);
         float az = (PI*q.x) / (2.0*SQRT2*cos(tau));
-        return cartesianFromSpherical(vec3(az, el, 1.0));
+        vec3 rp = cartesianFromSpherical(vec3(az, el, 1.0));
+        return vec3(rp.y, rp.z, -rp.x);
     #elif defined(PROJECTION_HAMMER)
         vec2 q = p / focalLength;
         float z = sqrt(1.0 - 0.0625*q.x*q.x - 0.25*q.y*q.y);
-        float az = 2.0*atan(z*q.x / (4.0*z*z - 2.0));
+        float az = 2.0*atan(z*q.x, 4.0*z*z - 2.0);
         float el = asin(z*q.y);
-        return cartesianFromSpherical(vec3(az, el, 1.0));
+        vec3 rp = cartesianFromSpherical(vec3(az, el, 1.0));
+        return vec3(rp.y, rp.z, -rp.x);
     #endif
 }
