@@ -30,9 +30,9 @@ class ChartScene {
         // this.loc = new SphereLocation("MOLLWEIDE");
         this.loc = new SphereLocation("HAMMER");
 
-        console.log('(0,0)', this.loc.inverseProject([0, 0]));
-        console.log('(0.1,0)', this.loc.inverseProject([0.1, 0]));
-        console.log('(0,0.1)', this.loc.inverseProject([0, 0.1]));
+        // console.log('(0,0)', this.loc.inverseProject([0, 0]));
+        // console.log('(0.1,0)', this.loc.inverseProject([0.1, 0]));
+        // console.log('(0,0.1)', this.loc.inverseProject([0, 0.1]));
 
         this.quadGroup = new QuadGroup(this, astro, () => { this.needsUpdate = true; });
         this.starsGroup = new StarsGroup(this, astro);
@@ -69,6 +69,8 @@ class ChartScene {
         // this.scene.setRotationFromQuaternion(loc.getRotation());
         // this.loc.theta += 0.001;
         // this.loc.phi += 0.0005/this.loc.scale;
+        this.loc.orientNorth(0.001);
+
         const m3 = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(this.loc.rotation));
         this.starsGroup.shader.uniforms.rotation.value = m3;
         this.quadGroup.shader.uniforms.rotation.value = m3;
@@ -82,7 +84,7 @@ class ChartScene {
     postRender() {
         // this.starsGroup.mesh.visible = Math.round(performance.now()/1000) % 2 === 0;
         this.textGroup.reset();
-        this.needsUpdate = false;
+        // this.needsUpdate = false;
     }
 }
 

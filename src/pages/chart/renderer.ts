@@ -143,6 +143,13 @@ class ChartRenderer {
 
         this.chartScene.preRender();
 
+
+        for (let t = -Math.PI; t < Math.PI; t += 0.3)
+            this.chartScene.textGroup.addText('-', [0.3*t, 0, 0], [1, 0.2, 1], [0, 0], 0.2);
+        for (const [phi, angle] of this.chartScene.loc.tempData) {
+            this.chartScene.textGroup.addText('O', [0.3*phi, 0.3*angle, 0], [1, 1, 1], [0, 0], 0.03);
+        }
+
         this.renderer.render(this.chartScene.scene, this.camera);
         this.canvasContext.globalCompositeOperation = 'copy';
         this.canvasContext.drawImage(this.renderer.domElement, 0, 0);

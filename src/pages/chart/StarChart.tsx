@@ -167,7 +167,7 @@ const StarChart: React.FC<StarChartProps> = ({ x }) => {
     console.log('astro', astro);
     
     return (
-        <Box ref={containerRef} width="1200px" height="750px">
+        <Box ref={containerRef} width="100%" height="750px">
         </Box>    
     );
 };
