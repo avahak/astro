@@ -96,6 +96,9 @@ function clampQuaternionDistance(q: THREE.Quaternion, q2: THREE.Quaternion, maxA
 
 class SphereLocation {
     rotation!: THREE.Quaternion;
+    phi: number = 0;
+    theta: number = 0;
+
     scale!: number;
 
     projection!: Projection;
@@ -115,6 +118,14 @@ class SphereLocation {
         const r1 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), theta-Math.PI/2);
         const r3 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI/2-phi);
         return r1.multiply(r3);
+    }
+
+    recomputeRotation() {
+        const rx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), this.phi);
+        const rz = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(-1, 0, 0), this.theta);
+        const r = rz.clone().multiply(rx);
+        this.rotation = r;
+        this.rotation.normalize();
     }
 
     computeCenterAngle(rot: THREE.Quaternion) {
@@ -148,7 +159,7 @@ class SphereLocation {
     orientNorth(delta: number) {
         const m3 = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(this.rotation));
         const m3t = m3.clone().transpose();
-        const ip0 = new THREE.Vector3(...this.inverseProject([0, 0])).applyMatrix3(m3t).normalize();
+        const ip0 = new THREE.Vector3(...this.inverseProject([0, -0.01])).applyMatrix3(m3t).normalize();
         const ip1 = new THREE.Vector3(...this.inverseProject([0, 0.01])).applyMatrix3(m3t).normalize();
         const v = ip1.clone().sub(ip0).normalize();
         const e3 = new THREE.Vector3(0, 0, 1);
@@ -167,7 +178,7 @@ class SphereLocation {
     }
 
     transform(x: number, y: number, dx: number, dy: number, scale: number, angle: number, width: number, height: number) {
-        const method: number = 2;
+        const method: number = 4;
 
         const [x1, y1] = [2*(x-width/2)/height, 2*(y-height/2)/height];
         const [x2, y2] = [2*(x+dx-width/2)/height, 2*(y+dy-height/2)/height];
@@ -329,6 +340,104 @@ class SphereLocation {
             }
             this.orientNorth(1000);
             this.rotation.copy(clampQuaternionDistance(originalRotation, this.rotation, 0.2));
+        }
+
+        if (method === 3) {
+            // R_old^{-1} proj^{-1} pointer_start = R_new^{-1} proj^{-1} pointer_end
+            // Therefore R_new R_old^{-1} proj^{-1} pointer_start = proj^{-1} pointer_end
+
+            // diff eq / numerical integration approach
+            const m3 = new THREE.Matrix3().setFromMatrix4(
+                new THREE.Matrix4().makeRotationFromQuaternion(this.rotation)
+            );
+            const m3t = m3.clone().transpose();
+            const w1 = new THREE.Vector3(...this.inverseProject([x1, -y1])).applyMatrix3(m3t).normalize();
+            const ip2 = new THREE.Vector3(...this.inverseProject([x2, -y2])).normalize();
+
+            const originalRotation = this.rotation.clone();
+
+            for (let iter = 0; iter < 20; iter++) {
+                const q0 = this.rotation.clone();
+
+                const w1q0 = w1.clone().applyQuaternion(q0);
+
+                const omega = new THREE.Vector3().crossVectors(w1q0, ip2);
+
+                const angularStep = 0.0001;
+                const e1q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angularStep);
+                const e2q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angularStep);
+                const e3q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angularStep);
+                const q1t = q0.clone().premultiply(e1q).normalize();
+                const q2t = q0.clone().premultiply(e2q).normalize();
+                const q3t = q0.clone().premultiply(e3q).normalize();
+
+                const northDev0 = Math.sin(this.computeCenterAngle(q0));
+                const northDev1 = Math.sin(this.computeCenterAngle(q1t));
+                const northDev2 = Math.sin(this.computeCenterAngle(q2t));
+                const northDev3 = Math.sin(this.computeCenterAngle(q3t));
+                const northVec = new THREE.Vector3().fromArray(Vec.normalize([northDev1-northDev0, northDev2-northDev0, northDev3-northDev0])).normalize();
+
+                const rotationVector = new THREE.Vector3(q0.x, q0.y, q0.z)
+                    .normalize().multiplyScalar(2 * Math.acos(q0.w));
+                const world0 = new THREE.Vector3().fromArray(this.inverseProject([0, 0])).applyQuaternion(q0.clone().invert()).normalize();
+                const e3 = new THREE.Vector3(0, 0, 1);
+                const worldNorth = e3.clone().sub(world0.clone().multiplyScalar(e3.dot(world0))).normalize();
+                const northVec2 = worldNorth.applyQuaternion(q0);
+                // console.log('1', northVec);
+                // console.log('21', rotationVector);
+                // console.log('22', centerWorld);
+                console.log('2', northVec2);
+                // console.log(q0, new THREE.Quaternion().setFromAxisAngle(rotationVector.clone().normalize(), rotationVector.length()));
+
+                // Project omega onto the plane orthogonal to northVec to preserve north-up
+                const omegaNorthComp = omega.clone().dot(northVec) * northVec.lengthSq();
+                const omegaConstrained = omega.clone().sub(northVec.clone().multiplyScalar(omegaNorthComp));
+
+                const angle = Math.min(Math.max(1.0*omegaConstrained.length(), 0.0001), 0.02);
+
+                const worldDeltaQ = new THREE.Quaternion().setFromAxisAngle(omegaConstrained.normalize(), angle);
+
+                this.rotation.premultiply(worldDeltaQ).normalize();
+            }
+            // this.orientNorth(1000);
+            // this.rotation.copy(clampQuaternionDistance(originalRotation, this.rotation, 0.2));
+        }
+
+        if (method === 4) {
+            // R_old^{-1} proj^{-1} pointer_start = R_new^{-1} proj^{-1} pointer_end
+            // Therefore R_new R_old^{-1} proj^{-1} pointer_start = proj^{-1} pointer_end
+            const m3 = new THREE.Matrix3().setFromMatrix4(
+                new THREE.Matrix4().makeRotationFromQuaternion(this.rotation)
+            );
+            const m3t = m3.clone().transpose();
+            const w1 = new THREE.Vector3(...this.inverseProject([x1, -y1])).applyMatrix3(m3t).normalize();
+            const ip2 = new THREE.Vector3(...this.inverseProject([x2, -y2])).normalize();
+            // We want this.rotation w1 = ip2
+
+            for (let iter = 0; iter < 10; iter++) {
+                const rx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), this.phi);
+                const rz = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(-1, 0, 0), this.theta);
+                const r = rz.clone().multiply(rx);
+                const p = w1.clone().applyQuaternion(r);
+                this.rotation = r;
+                this.rotation.normalize();
+
+                // Derivative with respect to phi
+                const v = w1.clone().applyQuaternion(rx);
+                const dp_dphi = new THREE.Vector3(0, 0, 1).cross(v).applyQuaternion(rz);
+                
+                // Derivative with respect to theta
+                const dp_dtheta = new THREE.Vector3(-1, 0, 0).cross(p);
+
+                // We want r_new w1 = ip2
+                const dir = ip2.clone().sub(p);
+                const dPhi = 0.5 * dir.dot(dp_dphi) / dp_dphi.lengthSq();
+                const dTheta = 0.5 * dir.dot(dp_dtheta) / dp_dtheta.lengthSq();
+                this.phi += dPhi;
+                this.theta = clamp(this.theta+dTheta, 0, Math.PI);
+            }
+
+            this.recomputeRotation();
         }
 
 
